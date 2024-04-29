@@ -12,10 +12,10 @@ def main():
     # Aliases
     cx = casadi.SX
     use_predefined_muscle_ratio_values = True
-    robust_optimization = False
+    robust_optimization = True
     models = (
         ModelBiorbd("models/Wu_DeGroote.bioMod", use_casadi=True),
-        ModelBiorbd("models/Wu_Thelen.bioMod", use_casadi=True),
+        # ModelBiorbd("models/Wu_Thelen.bioMod", use_casadi=True),
     )
     expand = True
 

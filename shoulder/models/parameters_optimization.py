@@ -205,9 +205,9 @@ def optimize_muscle_parameters(
     if expand:
         fd = fd.expand()
 
-    weight = 100
+    weight = 1
     if robust_optimization:
-        n_robusts = 5
+        n_robusts = 10
         poses = model.ranged_relaxed_poses(limit=1.0 * np.pi / 180, n_elements=n_robusts).T
         weight *= 1 / len(poses)
         for q in poses:
@@ -215,29 +215,30 @@ def optimize_muscle_parameters(
     else:
         f_mx.append(weight * fd(model.relaxed_pose, x_mx) ** 2)
 
+    # Minimize the error on the ratio of the tendon slack length to the optimal length
+    if use_predefined_muscle_ratio_values:
+        for i in range(n_muscles):
+            model_ratio = reference_tendon_slack_lengths[i] / reference_optimal_lengths[i]
+            optimized_ratio = tendon_slack_lengths_mx[i] / optimal_lengths_mx[i]
+            f_mx.append(100 * (optimized_ratio - model_ratio) ** 2)
+
     emg = casadi.MX.ones(n_muscles, 1)
     qdot = casadi.MX.zeros(model.n_q, 1)
     for i in range(n_muscles):
         q_optimal = casadi.MX(strongest_poses[model.muscle_names[i]])
         flpe, flce = model.muscle_force_coefficients(emg, q_optimal, muscle_index=i)
-        maximal_force = model.get_muscle_parameter(i, MuscleParameter.MAXIMAL_FORCE)
-        normalized_force = model.muscle_force(emg, q_optimal, qdot, muscle_index=i) / maximal_force
-
-        # Forces should be maximized at the optimal pose
-        # weight = 1
-        # f_mx.append(weight * -(normalized_force**2))
 
         # Forces should be maximized at the optimal pose
         g_mx.append(flce)
         lbg.append(0.70)
         ubg.append(1.00)
-        f_mx.append(100 * -flpe)
+        f_mx.append(10 * -flce)
 
         # Passive force should be almost zero at the optimal pose
         g_mx.append(flpe)
         lbg.append(0.000)
         ubg.append(0.025)
-        f_mx.append(100 * flce)
+        f_mx.append(10 * flpe)
 
     # Converting to casadi functions
     if len(f_mx) == 0:

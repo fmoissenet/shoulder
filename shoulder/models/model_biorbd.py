@@ -10,7 +10,7 @@ from scipy import integrate
 
 from .enums import ControlsTypes, IntegrationMethods, MuscleParameter
 from .model_abstract import ModelAbstract
-from .parameters_optimization import Results, optimize_muscle_parameters
+from .parameters_optimization import optimize_muscle_parameters
 from ..helpers import Vector, Scalar, VectorHelpers
 
 
