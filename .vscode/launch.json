@@ -28,5 +28,13 @@
             "cwd": "${workspaceFolder}/run",
             "console": "integratedTerminal"
         },
+        {
+            "name": "Scapula averaging",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run/scapula_averaging.py",
+            "cwd": "${workspaceFolder}/run",
+            "console": "integratedTerminal"
+        },
     ]
 }

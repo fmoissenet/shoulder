@@ -16,5 +16,6 @@ dependencies:
 - imageio
 - casadi
 - ipopt
+- plyfile
 - pip:
   - myosuite
