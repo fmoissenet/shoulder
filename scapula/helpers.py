@@ -2,7 +2,6 @@ import copy
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Button
 
 
 class DataHelpers:
@@ -46,23 +45,24 @@ class MatrixHelpers:
         t = np.zeros((3, 1))
 
         # Copy the points
-        points1_transformed = copy.deepcopy(points1)
+        points1_transformed = copy.deepcopy(points1[:3, :])
+        pts2 = copy.deepcopy(points2[:3, :])
 
         for _ in range(max_iterations):
             # Find the nearest neighbors
-            distances, indices = MatrixHelpers._nearest_neighbor(points1_transformed, points2)
+            # distances, indices = MatrixHelpers._nearest_neighbor(points1_transformed, pts2)
 
             # Compute the transformation
-            R, t = MatrixHelpers._compute_transformation(points1_transformed, points2[:, indices])
+            R, t = MatrixHelpers._compute_transformation(points1_transformed, pts2)
 
             # Apply the transformation
             points1_transformed = np.dot(R, points1_transformed) + t
 
             # Check convergence
-            if np.sum(distances) < tolerance:
+            if np.sum(np.sum((np.ones(3) - R) ** 2) - 6 + np.sum(t**2)) < tolerance:
                 break
 
-        return R, t
+        return points1_transformed
 
     @staticmethod
     def _nearest_neighbor(src, dst):
@@ -124,67 +124,6 @@ class MatrixHelpers:
 
 class PlotHelpers:
     @staticmethod
-    def pickable_scapula_geometry_plot(points_name: list[str], data: np.ndarray) -> dict[str, np.array]:
-        # Prepare the figure
-        fig = plt.figure(f"Pick the points")
-        ax = fig.add_subplot(111, projection="3d")
-        ax.scatter(data[0, :], data[1, :], data[2, :], ".", s=1, picker=5, alpha=0.3)
-        scatter = ax.scatter(np.nan, np.nan, np.nan, ".", c="r", s=50)
-        ax.set_xlabel("X")
-        ax.set_ylabel("Y")
-        ax.set_zlabel("Z")
-        ax.set_box_aspect([1, 1, 1])
-
-        # Add the next button
-        axnext = plt.axes([0.81, 0.05, 0.1, 0.075])
-        bnext = Button(axnext, "Next")
-
-        def on_pick_point(event):
-            picked_index = int(event.ind[0])
-
-            picked_point[0] = data[:, picked_index]
-            scatter._offsets3d = (
-                picked_point[0][np.newaxis, 0],
-                picked_point[0][np.newaxis, 1],
-                picked_point[0][np.newaxis, 2],
-            )
-            scatter.set_sizes([50])
-            fig.canvas.draw_idle()
-
-        def on_confirmed_point(event):
-            # Save the previous point
-            if event is not None:
-                picked_points[points_name[current_point[0]]] = picked_point[0]
-
-            current_point[0] += 1
-
-            if current_point[0] == len(points_name):
-                plt.close(fig)
-                return
-
-            picked_point[0] = np.array([np.nan, np.nan, np.nan])
-            scatter._offsets3d = (
-                picked_point[0][np.newaxis, 0],
-                picked_point[0][np.newaxis, 1],
-                picked_point[0][np.newaxis, 2],
-            )
-
-            point_name = points_name[current_point[0]]
-            ax.title.set_text(f"Pick the {point_name} then close the window")
-            fig.canvas.draw_idle()
-
-        # Setup the connection
-        picked_points = {}
-        current_point = [-1]
-        picked_point = [np.array([np.nan, np.nan, np.nan])]
-        on_confirmed_point(None)
-        fig.canvas.mpl_connect("pick_event", on_pick_point)
-        bnext.on_clicked(on_confirmed_point)
-        plt.show()
-
-        return picked_points
-
-    @staticmethod
     def show_axes(ax, lcs):
         origin = lcs[:3, 3]
         x = lcs[:3, 0]
@@ -193,3 +132,7 @@ class PlotHelpers:
         ax.quiver(*origin, *x, color="r")
         ax.quiver(*origin, *y, color="g")
         ax.quiver(*origin, *z, color="b")
+
+    @staticmethod
+    def show():
+        plt.show()
