@@ -19,13 +19,13 @@ class DataHelpers:
 class MatrixHelpers:
     @staticmethod
     def transpose_homogenous_matrix(homogenous_matrix: np.ndarray) -> np.ndarray:
-        out = np.zeros((4, 4))
+        out = np.eye(4)
         out[:3, :3] = homogenous_matrix[:3, :3].transpose()
         out[:3, 3] = -out[:3, :3] @ homogenous_matrix[:3, 3]
         return out
 
     @staticmethod
-    def icp(points1, points2, max_iterations=100, tolerance=1e-5):
+    def icp(points1, points2, max_iterations=100, tolerance=1e-4):
         """
         Perform ICP to align points1 to points2.
 
@@ -39,30 +39,49 @@ class MatrixHelpers:
         R: 3x3 rotation matrix
         t: 3x1 translation vector
         """
+        points2 = points2[:3, ::5]
 
         # Initial transformation (identity)
-        R = np.eye(3)
+        r = np.eye(3)
         t = np.zeros((3, 1))
+        print(points1.shape)
+        print(points2.shape)
+        print("")
 
         # Copy the points
-        points1_transformed = copy.deepcopy(points1[:3, :])
-        pts2 = copy.deepcopy(points2[:3, :])
+        points1_transformed = points1[:3, :] - np.mean(points1[:3, :], axis=1, keepdims=True)
+        pts2 = points2[:3, :]
+        prev_error = np.inf
+        final_r = np.eye(3)
+        final_t = np.zeros((3, 1))
 
         for _ in range(max_iterations):
             # Find the nearest neighbors
-            # distances, indices = MatrixHelpers._nearest_neighbor(points1_transformed, pts2)
+            # if points1.shape[1] == points2.shape[1]:
+            #     indices = np.arange(points1.shape[1])
+            # else:
+            __, indices = MatrixHelpers._nearest_neighbor(points1_transformed, pts2)
+            # squared_error = np.mean(distance_squared)
 
             # Compute the transformation
-            R, t = MatrixHelpers._compute_transformation(points1_transformed, pts2)
+            r, t = MatrixHelpers._compute_transformation(points1_transformed, pts2[:, indices])
+            squared_error = np.sum((np.eye(3) - r) ** 2) + np.sum(t**2)
+            final_r = final_r @ r
+            final_t = final_t + t
 
             # Apply the transformation
-            points1_transformed = np.dot(R, points1_transformed) + t
+            points1_transformed = r @ points1_transformed + t
 
             # Check convergence
-            if np.sum(np.sum((np.ones(3) - R) ** 2) - 6 + np.sum(t**2)) < tolerance:
+            if np.abs(prev_error - squared_error) < tolerance:
                 break
+            prev_error = squared_error
 
-        return points1_transformed
+        rt = np.eye(4)
+        rt[:3, :3] = final_r
+        rt[:3, 3] = final_t[:, 0]
+        # TODO Find the RT
+        return rt @ points1
 
     @staticmethod
     def _nearest_neighbor(src, dst):
@@ -77,14 +96,15 @@ class MatrixHelpers:
         distances: numpy array of shape (N,) containing the distances to the nearest neighbors
         indices: numpy array of shape (N,) containing the indices of the nearest neighbors in dst
         """
-        distances = np.zeros(src.shape[1])
-        indices = np.zeros(src.shape[1], dtype=int)
+        squared_distances = np.ndarray(src.shape[1])
+        indices = np.ndarray(src.shape[1], dtype=int)
 
         for i in range(src.shape[1]):
-            distances[i] = np.min(np.linalg.norm(dst - src[:, i][:, None], axis=0))
-            indices[i] = np.argmin(np.linalg.norm(dst - src[:, i][:, None], axis=0))
+            tp = np.sum((dst - src[:, i : i + 1]) ** 2, axis=0)
+            squared_distances[i] = np.min(tp)
+            indices[i] = np.argmin(tp)
 
-        return distances, indices
+        return squared_distances, indices
 
     @staticmethod
     def _compute_transformation(points1, points2):
