@@ -1,7 +1,7 @@
 import os
 
 import numpy as np
-from scapula import Scapula, ScapulaDataType, PlotHelpers, JointCoordinateSystem
+from scapula import Scapula, ScapulaDataType, PlotHelpers, JointCoordinateSystem, MatrixHelpers
 
 
 def get_reference_scapula(filepath: str, use_precomputed_values: bool):
@@ -39,6 +39,7 @@ def main():
 
     left_scapula_files = ["PJ151-M021-scapula.ply", "PJ151-M015-scapula.ply"]
 
+    scapulas: list[Scapula] = []
     for file in scapula_files:
         print(f"Processing {file}")
 
@@ -57,15 +58,32 @@ def main():
             filepath=filepath, reference_scapula=reference_scapula, shared_indices_with_reference=True, is_left=is_left
         )
 
-        scapula.plot_geometry(
-            data_type=ScapulaDataType.LOCAL,
-            show_jcs=[JointCoordinateSystem.ISB, JointCoordinateSystem.O_GC__X_TS_AA__Y_IA_TS_AA],
-            show_now=True,
-            color="r",
-        )
+        # scapula.plot_geometry(
+        #     data_type=ScapulaDataType.LOCAL,
+        #     show_jcs=[JointCoordinateSystem.ISB, JointCoordinateSystem.O_GC__X_TS_AA__Y_IA_TS_AA],
+        #     show_now=True,
+        #     color="r",
+        # )
 
         # TODO Automatically find the distance between corresponding indices to see if they match
-        # TODO Compute all the different reference frames
+
+        scapulas.append(scapula)
+
+    m = MatrixHelpers.average_matrices(
+        [scapula.get_joint_coordinates_system(JointCoordinateSystem.DUMMY) for scapula in scapulas]
+    )
+
+    # Plot the average scapula
+    ax = reference_scapula.plot_geometry(
+        show_now=False,
+        marker="o",
+        color="b",
+        s=5,
+        alpha=0.1,
+        data_type=ScapulaDataType.LOCAL,
+        show_jcs=[JointCoordinateSystem.DUMMY],
+    )
+    PlotHelpers.show_axes(ax=ax, axes=m)
     PlotHelpers.show()
 
     # TODO Compute the average matrices from ISB reference frame to other local coordinate systems

@@ -87,40 +87,6 @@ class MatrixHelpers:
         aligned_points: numpy array of shape (3, N) representing the aligned first point cloud
         """
 
-        def compute_transformation(points1, points2):
-            """
-            Compute the transformation (R, t) that aligns points1 to points2.
-
-            Args:
-            points1: numpy array of shape (3, N) representing the source point cloud
-            points2: numpy array of shape (3, N) representing the destination point cloud
-
-            Returns:
-            R: 3x3 rotation matrix
-            t: 3x1 translation vector
-            """
-            # Compute centroids
-            centroid1 = np.mean(points1, axis=1, keepdims=True)
-            centroid2 = np.mean(points2, axis=1, keepdims=True)
-
-            # Subtract centroids
-            centered1 = points1 - centroid1
-            centered2 = points2 - centroid2
-
-            # Compute covariance matrix
-            H = np.dot(centered1, centered2.T)
-
-            # Singular Value Decomposition
-            U, _, Vt = np.linalg.svd(H)
-
-            # Rotation matrix
-            R = np.dot(Vt.T, U.T)
-
-            # Translation vector
-            t = centroid2 - np.dot(R, centroid1)
-
-            return R, t
-
         # Initial transformation (identity)
         r = np.eye(3)
         t = np.zeros((3, 1))
@@ -149,8 +115,7 @@ class MatrixHelpers:
                 __, indices = MatrixHelpers.nearest_neighbor(pts1, pts2)
 
             # Compute the transformation
-            r, t = compute_transformation(pts1, pts2[:, indices])
-            rt_step = np.concatenate([np.concatenate([r, t], axis=1), [[0, 0, 0, 1]]])
+            rt_step = MatrixHelpers.compute_best_fit_transformation(pts1, pts2[:, indices])
             rt = rt_step @ rt
 
             # Check convergence
@@ -163,10 +128,71 @@ class MatrixHelpers:
         rt[:3, 3] -= (rt[:3, :3] @ pts1_mean[:3, :])[:3, 0]
         return rt
 
+    def average_matrices(matrices: list[np.ndarray]) -> np.ndarray:
+        """
+        Compute the average of a list of matrices.
+
+        Args:
+        matrices: numpy array of shape (N, 4, 4) representing the list of matrices
+
+        Returns:
+        average: numpy array of shape (4, 4) representing the average matrix
+        """
+
+        # Compute the average of the rotation matrices
+        rotations = np.array([matrix[:3, :3] for matrix in matrices]).T
+        u, _, v_T = np.linalg.svd(np.mean(rotations, axis=2))
+        average_rotation = np.dot(u, v_T)
+
+        # Compute the average of the translation vectors
+        translations = np.array([matrix[:3, 3] for matrix in matrices]).T
+        average_translation = np.mean(translations, axis=1)
+
+        # Create the average matrix
+        out = np.eye(4)
+        out[:3, :3] = average_rotation
+        out[:3, 3] = average_translation
+
+        return out
+
+    def compute_best_fit_transformation(points1, points2):
+        """
+        Compute the transformation (R, t) that aligns points1 to points2, based on the algorithm from kabsch.
+
+        Args:
+        points1: numpy array of shape (3, N) representing the source point cloud
+        points2: numpy array of shape (3, N) representing the destination point cloud
+
+        Returns:
+        transformation: numpy array of shape (4, 4) representing the average transformation matrix
+        """
+        # Compute centroids
+        centroid1 = np.mean(points1, axis=1, keepdims=True)
+        centroid2 = np.mean(points2, axis=1, keepdims=True)
+
+        # Subtract centroids
+        centered1 = points1 - centroid1
+        centered2 = points2 - centroid2
+
+        # Compute covariance matrix
+        H = np.dot(centered1, centered2.T)
+
+        # Singular Value Decomposition
+        U, _, Vt = np.linalg.svd(H)
+
+        # Rotation matrix
+        r = np.dot(Vt.T, U.T)
+
+        # Translation vector
+        t = centroid2 - np.dot(r, centroid1)
+
+        return np.concatenate([np.concatenate([r, t], axis=1), [[0, 0, 0, 1]]])
+
     @staticmethod
     def nearest_neighbor(src, dst):
         """
-        Find the nearest (Euclidean distance) neighbor in dst for each point in src.
+        Find the nearest (Euclidean distance) neighbor in dst for each point in src, based on the formula:
+        d = sum((src - dst)^2)
 
         Args:
         src: numpy array of shape (3, N) representing the source point cloud

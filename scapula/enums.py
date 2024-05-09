@@ -19,6 +19,7 @@ class JointCoordinateSystem(Enum):
 
     O_AA__X_TS_AA__Y_IA_TS_AA = ScapulaJcsGeneric(origin=["AA"], x=(["TS"], ["AA"]), z=(["IA"], ["TS"]))
     O_GC__X_TS_AA__Y_IA_TS_AA = ScapulaJcsGeneric(origin=["GC"], x=(["TS"], ["AA"]), z=(["IA"], ["TS"]))
+    DUMMY = ScapulaJcsGeneric(origin=["GC"], x=(["IA"], ["AA"]), z=(["TS"], ["SA"]))
     ISB = O_AA__X_TS_AA__Y_IA_TS_AA
 
     def __call__(self, landmarks: dict[str, np.array]) -> np.array:
