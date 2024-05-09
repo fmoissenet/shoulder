@@ -1,7 +1,7 @@
 import os
 
 import numpy as np
-from scapula import Scapula, PlotHelpers
+from scapula import Scapula, ScapulaDataType
 
 
 def get_reference_scapula(filepath: str, use_precomputed_values: bool):
@@ -16,7 +16,7 @@ def get_reference_scapula(filepath: str, use_precomputed_values: bool):
         landmarks = None
 
     # Load the geometry data
-    return Scapula(filepath=filepath, predefined_landmarks=landmarks)
+    return Scapula.from_landmarks(filepath=filepath, predefined_landmarks=landmarks)
 
 
 def main():
@@ -26,7 +26,11 @@ def main():
     )
 
     # Plot for debug
-    ax = reference_scapula.plot_geometry(show_now=False, marker="o", color="b", s=10)
+    from matplotlib import pyplot as plt
+
+    fig = plt.figure(f"Scapula")
+    ax_with_ref = fig.add_subplot(121, projection="3d")
+    reference_scapula.plot_geometry(ax=ax_with_ref, show_now=False, marker="o", color="b", s=10)
 
     # Sequentially analyse all the scapulas
     scapula_folder = "models/scapula/Scapula-BD-EOS/asymptomatiques/"
@@ -35,10 +39,20 @@ def main():
     for file in scapula_files:
         # Load the scapula data
         filepath = os.path.join(scapula_folder, file)
-        scapula = Scapula(filepath=filepath, reference_scapula=reference_scapula)
-        scapula.plot_geometry(ax=ax, show_now=True, color="r")
+        scapula = Scapula.from_reference_scapula(filepath=filepath, reference_scapula=reference_scapula)
 
-        # TODO Find the optimal transformation to get to the reference scapula
+        scapula.plot_geometry(
+            ax=fig.add_subplot(122, projection="3d"),
+            data_type=ScapulaDataType.RAW_NORMALIZED,
+            show_now=False,
+            color="r",
+        )
+        scapula.plot_geometry(
+            ax=ax_with_ref, data_type=ScapulaDataType.LOCAL, show_axes=False, show_now=True, color="r"
+        )
+
+        break
+
         # TODO Automatically find the distance between corresponding indices to see if they match
         # TODO or automatically label all the scapula bony landmarks based on their proximity with the reference
         # TODO Get all the reference frames

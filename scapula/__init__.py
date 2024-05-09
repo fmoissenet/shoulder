@@ -1,2 +1,2 @@
 from .helpers import DataHelpers, MatrixHelpers, PlotHelpers
-from .scapula import Scapula
+from .scapula import Scapula, ScapulaDataType
