@@ -25,7 +25,17 @@ def _compute_isb_coordinate_system(landmarks: dict[str, np.array]) -> np.array:
     return lcs
 
 
-def _load_scapula_geometry(file_path: str) -> np.ndarray:
+def _load_scapula_geometry(file_path: str, is_left: bool) -> np.ndarray:
+    """
+    Load the scapula geometry from a file.
+
+    Args:
+    file_path: path to the scapula geometry file
+    is_left: whether the scapula is the left one or a right one. If left, the scapula will be mirrored.
+
+    Returns:
+    data: the scapula geometry as a numpy array
+    """
     extension = file_path.split(".")[-1]
     if extension == "ply":
         data = None
@@ -39,6 +49,9 @@ def _load_scapula_geometry(file_path: str) -> np.ndarray:
     else:
         raise NotImplementedError(f"The file extension {extension} is not supported yet.")
 
+    if is_left:
+        data[0, :] *= -1
+
     return data
 
 
@@ -49,80 +62,123 @@ class ScapulaDataType(Enum):
 
 
 class Scapula:
-    def __init__(self, filepath: str) -> None:
+    def __init__(self, filepath: str, is_left: bool) -> None:
         """
         Private constructor to load the scapula geometry from a file. This should not be called directly.
 
         Args:
         filepath: path to the scapula geometry file
+        is_left: whether the scapula is the left one or a right one. If left, the scapula will be mirrored.
 
         Returns:
         None
         """
 
-        self.raw_data = _load_scapula_geometry(filepath)
+        self.raw_data = _load_scapula_geometry(filepath, is_left=is_left)
         self.normalized_raw_data = DataHelpers.rough_normalize(self.raw_data)
 
-        self.landmarks = None  # This will be filled by the private constructor
-        self.gcs = None  # This will be filled by the private constructor
-        self.data = None  # This will be filled by the public constructor
+        self._landmarks: dict[str, np.ndarray] = None  # This will be filled by the private constructor
+        self.gcs: np.ndarray = None  # This will be filled by the private constructor
+        self.data: np.ndarray = None  # This will be filled by the public constructor
 
     @classmethod
-    def from_landmarks(cls, filepath: str, predefined_landmarks: dict[str, np.ndarray] = None) -> "Scapula":
+    def from_landmarks(
+        cls, filepath: str, predefined_landmarks: dict[str, np.ndarray] = None, is_left: bool = False
+    ) -> "Scapula":
         """
         Public constructor to create a Scapula object from landmarks.
 
         Args:
         filepath: path to the scapula geometry file
-        predefined_landmarks: dictionary containing the landmarks as keys and the coordinates as values. If None,
-        the user will be prompted to select the landmarks on the scapula geometry.
+        predefined_landmarks: dictionary containing the landmarks as keys and the coordinates as values in RAW_NORMALIZED.
+        If None, the user will be prompted to select the landmarks on the scapula geometry.
+        is_left: whether the scapula is the left one or a right one. If left, the scapula will be mirrored.
 
         Returns:
         Scapula object
         """
-        scapula = cls(filepath=filepath)
+        scapula = cls(filepath=filepath, is_left=is_left)
 
-        ## Fill the mandatory fields that are not filled by the private constructor
-
-        # Compute or points the landmarks
-        scapula.landmarks = scapula._define_landmarks(predefined_landmarks)
-
-        # Project the scapula in its local reference frame based on ISB
-        scapula.gcs = _compute_isb_coordinate_system(scapula.landmarks)
-
-        # Compute the local data
-        scapula.data = MatrixHelpers.transpose_homogenous_matrix(scapula.gcs) @ scapula.normalized_raw_data
+        # Fill the mandatory fields that are not filled by the private constructor
+        scapula._fill_mandatory_fields(predefined_landmarks=predefined_landmarks)
 
         # Return the scapula object
         return scapula
 
     @classmethod
-    def from_reference_scapula(cls, filepath: str, reference_scapula: "Scapula") -> "Scapula":
+    def from_reference_scapula(
+        cls,
+        filepath: str,
+        reference_scapula: "Scapula",
+        shared_indices_with_reference: bool = False,
+        is_left: bool = False,
+    ) -> "Scapula":
         """
         Public constructor to create a Scapula object from a reference scapula.
 
         Args:
         filepath: path to the scapula geometry file
         reference_scapula: reference scapula object
+        shared_indices_with_reference: whether to use the same indices for both scapulas (much faster as it skips the
+        nearest neighbor search)
+        is_left: whether the scapula is the left one or a right one. If left, the scapula will be mirrored.
 
         Returns:
         Scapula object
         """
-        scapula = cls(filepath=filepath)
+        scapula = cls(filepath=filepath, is_left=is_left)
 
-        ## Fill the mandatory fields that are not filled by the private constructor
-
-        # Find the global coordinate system transformation
-        gcs_T = MatrixHelpers.icp(scapula.normalized_raw_data, reference_scapula.get_data(ScapulaDataType.LOCAL))
-        scapula.gcs = MatrixHelpers.transpose_homogenous_matrix(gcs_T)
+        # Find the landmarks so we can call the from_landmarks constructor
 
         # Compute the local data
-        scapula.data = gcs_T @ scapula.normalized_raw_data
+        gcs_T = MatrixHelpers.icp(
+            scapula.normalized_raw_data,
+            reference_scapula.get_data(ScapulaDataType.LOCAL),
+            share_indices=shared_indices_with_reference,
+        )
+        local_data = gcs_T @ scapula.normalized_raw_data
 
-        # Return the scapula object
+        # Find the landmarks in the normalized data
+        reference_landmarks = reference_scapula.landmarks(ScapulaDataType.LOCAL, as_array=True)
+        _, landmark_idx = MatrixHelpers.nearest_neighbor(reference_landmarks[:3, :], local_data[:3, :])
+        landmarks = {
+            key: scapula.normalized_raw_data[:, landmark_idx[i]] for i, key in enumerate(scapula.landmark_names)
+        }
+
+        # Create and return the scapula object
+        scapula._fill_mandatory_fields(predefined_landmarks=landmarks)
         return scapula
 
+    def _fill_mandatory_fields(self, predefined_landmarks: dict[str, np.ndarray] = None) -> None:
+        """
+        Fill the mandatory fields of the scapula object left unfilled by the private constructor.
+        This should be called after the public constructors.
+
+        Args:
+        predefined_landmarks: dictionary containing the landmarks as keys and the coordinates as values in RAW_NORMALIZED.
+        If None, the user will be prompted to select the landmarks on the scapula geometry.
+
+        Returns:
+        None
+        """
+        self._landmarks = self._define_landmarks(predefined_landmarks)
+
+        # Project the scapula in its local reference frame based on ISB
+        self.gcs = _compute_isb_coordinate_system(self._landmarks)
+
+        # Compute the local data
+        self.data = MatrixHelpers.transpose_homogenous_matrix(self.gcs) @ self.normalized_raw_data
+
     def get_data(self, data_type: ScapulaDataType) -> np.ndarray:
+        """
+        Get the scapula data in the desired format.
+
+        Args:
+        data_type: the desired pose of the scapula data
+
+        Returns:
+        data: the scapula data in the desired format
+        """
         if data_type == ScapulaDataType.RAW:
             return self.raw_data
         elif data_type == ScapulaDataType.RAW_NORMALIZED:
@@ -132,28 +188,89 @@ class Scapula:
         else:
             raise ValueError("Unsupported data type")
 
+    @property
+    def landmark_names(self):
+        """
+        Get the names of the landmarks.
+
+        Returns:
+        landmark_names: the names of the landmarks
+        """
+        return ["IA", "TS", "AA", "AC"]
+
     def _define_landmarks(self, predefined_landmarks: dict[str, np.ndarray] = None) -> dict[str, np.ndarray]:
-        landmark_names = ["IA", "TS", "AA", "AC"]
+        """
+        Define the landmarks of the scapula.
+
+        Args:
+        predefined_landmarks: dictionary containing the landmarks as keys and the coordinates as values in RAW_NORMALIZED.
+        If None, the user will be prompted to select the landmarks on the scapula geometry.
+
+        Returns:
+        landmarks: the landmarks of the scapula
+        """
         if predefined_landmarks is None:
             landmarks = self.plot_pickable_geometry(
-                points_name=landmark_names, data_type=ScapulaDataType.RAW_NORMALIZED
+                points_name=self.landmark_names, data_type=ScapulaDataType.RAW_NORMALIZED
             )
         else:
             landmarks = predefined_landmarks
 
-        if False in [name in landmarks.keys() for name in landmark_names]:
+        if False in [name in landmarks.keys() for name in self.landmark_names]:
             raise RuntimeError("Not all required points were selected")
 
         return landmarks
+
+    def landmarks(
+        self, data_type: ScapulaDataType = ScapulaDataType.RAW_NORMALIZED, as_array: bool = False
+    ) -> dict[str, np.array] | np.ndarray:
+        """
+        Get the landmarks in the desired format.
+
+        Args:
+        data_type: the desired pose of the landmarks
+        as_array: whether to return the landmarks as a numpy array or as a dictionary
+
+        Returns:
+        landmarks: the landmarks in the desired format
+        """
+
+        if data_type == ScapulaDataType.RAW_NORMALIZED:
+            out = self._landmarks
+        elif data_type == ScapulaDataType.LOCAL:
+            gcs_T = MatrixHelpers.transpose_homogenous_matrix(self.gcs)
+            out = {key: gcs_T @ val for key, val in self._landmarks.items()}
+        else:
+            raise ValueError("Unsupported data type")
+
+        if as_array:
+            return np.array([val for val in out.values()]).T
+        else:
+            return out
 
     def plot_geometry(
         self,
         ax: plt.Axes = None,
         data_type: ScapulaDataType = ScapulaDataType.LOCAL,
         show_axes: bool = True,
+        show_landmarks: bool = True,
         show_now: bool = False,
         **kwargs,
     ) -> None | plt.Axes:
+        """
+        Plot the scapula geometry.
+
+        Args:
+        ax: matplotlib axis to plot the scapula geometry
+        data_type: the desired pose of the scapula data
+        show_axes: whether to show the axes of the scapula
+        show_landmarks: whether to show the landmarks of the scapula
+        show_now: whether to show the plot now or return the axis
+        **kwargs: additional arguments to pass to the scatter function
+
+        Returns:
+        None if show_now is True, the axis otherwise
+        """
         if ax is None:
             fig = plt.figure(f"Scapula")
             ax = fig.add_subplot(111, projection="3d")
@@ -183,6 +300,10 @@ class Scapula:
             else:
                 raise ValueError("Unsupported data type")
 
+        if show_landmarks:
+            landmarks = self.landmarks(data_type, as_array=True)
+            ax.scatter(landmarks[0, :], landmarks[1, :], landmarks[2, :], c="g", s=50)
+
         if show_now:
             plt.show()
             return None
@@ -192,12 +313,22 @@ class Scapula:
     def plot_pickable_geometry(
         self, points_name: list[str], data_type: ScapulaDataType = ScapulaDataType.LOCAL
     ) -> dict[str, np.array]:
+        """
+        Plot the scapula geometry and allow the user to pick the points.
+
+        Args:
+        points_name: the names of the points to pick
+        data_type: the desired pose of the scapula data
+
+        Returns:
+        picked_points: dictionary containing the picked points
+        """
         # Prepare the figure
         fig = plt.figure(f"Pick the points")
         ax = fig.add_subplot(111, projection="3d")
 
         data = self.get_data(data_type)
-        self.plot_geometry(ax=ax, data_type=data_type, show_axes=False)
+        self.plot_geometry(ax=ax, data_type=data_type, show_landmarks=False, show_axes=False)
         scatter = ax.scatter(np.nan, np.nan, np.nan, ".", c="r", s=50)
 
         # Add the next button

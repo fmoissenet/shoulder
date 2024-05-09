@@ -1,7 +1,7 @@
 import os
 
 import numpy as np
-from scapula import Scapula, ScapulaDataType
+from scapula import Scapula, ScapulaDataType, PlotHelpers
 
 
 def get_reference_scapula(filepath: str, use_precomputed_values: bool):
@@ -26,38 +26,47 @@ def main():
     )
 
     # Plot for debug
-    from matplotlib import pyplot as plt
+    # from matplotlib import pyplot as plt
 
-    fig = plt.figure(f"Scapula")
-    ax_with_ref = fig.add_subplot(121, projection="3d")
-    reference_scapula.plot_geometry(ax=ax_with_ref, show_now=False, marker="o", color="b", s=10)
+    # fig = plt.figure(f"Scapula")
+    # ax_with_ref = fig.add_subplot(121, projection="3d")
+    ax = reference_scapula.plot_geometry(show_now=False, marker="o", color="b", s=10)
 
     # Sequentially analyse all the scapulas
     scapula_folder = "models/scapula/Scapula-BD-EOS/asymptomatiques/"
     scapula_files = os.listdir(scapula_folder)
 
-    for file in scapula_files:
-        # Load the scapula data
-        filepath = os.path.join(scapula_folder, file)
-        scapula = Scapula.from_reference_scapula(filepath=filepath, reference_scapula=reference_scapula)
+    left_scapula_files = ["PJ151-M021-scapula.ply", "PJ151-M015-scapula.ply"]
 
+    for file in scapula_files:
+        print(f"Processing {file}")
+
+        if file in [
+            "PJ151-M008-scapula.ply",
+            "PJ151-M027-scapula.ply",
+            "PJ151-M010-scapula.ply",
+            "PJ151-M023-scapula.ply",
+        ]:
+            print("To validate")
+
+        # Load the scapula data
+        is_left = file in left_scapula_files
+        filepath = os.path.join(scapula_folder, file)
+        scapula = Scapula.from_reference_scapula(
+            filepath=filepath, reference_scapula=reference_scapula, shared_indices_with_reference=True, is_left=is_left
+        )
+
+        ax = reference_scapula.plot_geometry(show_now=False, marker="o", color="b", s=10)
         scapula.plot_geometry(
-            ax=fig.add_subplot(122, projection="3d"),
-            data_type=ScapulaDataType.RAW_NORMALIZED,
-            show_now=False,
+            ax=ax,
+            data_type=ScapulaDataType.LOCAL,
+            show_now=True,
             color="r",
         )
-        scapula.plot_geometry(
-            ax=ax_with_ref, data_type=ScapulaDataType.LOCAL, show_axes=False, show_now=True, color="r"
-        )
-
-        break
 
         # TODO Automatically find the distance between corresponding indices to see if they match
-        # TODO or automatically label all the scapula bony landmarks based on their proximity with the reference
-        # TODO Get all the reference frames
-        # TODO Project the scapula in the local reference frame
-        # TODO Compute all the difference reference frames
+        # TODO Compute all the different reference frames
+    PlotHelpers.show()
 
     # TODO Compute the average matrices from ISB reference frame to other local coordinate systems
     # TODO Compute the "standard deviation" to the average matrices (variability)

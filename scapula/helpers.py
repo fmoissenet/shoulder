@@ -1,5 +1,3 @@
-import copy
-
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -7,6 +5,16 @@ import matplotlib.pyplot as plt
 class DataHelpers:
     @staticmethod
     def rough_normalize(data: np.ndarray) -> np.ndarray:
+        """
+        Roughly normalize the data by dividing it by the maximum range. Hopefully this is the inferior angulus to
+        the coracoid process
+
+        Args:
+        data: numpy array of shape (4, N) representing the data
+
+        Returns:
+        out: numpy array of shape (4, N) representing the normalized data
+        """
         x_range = np.max(data[0, :]) - np.min(data[0, :])
         y_range = np.max(data[1, :]) - np.min(data[1, :])
         z_range = np.max(data[2, :]) - np.min(data[2, :])
@@ -19,6 +27,17 @@ class DataHelpers:
 class MatrixHelpers:
     @staticmethod
     def transpose_homogenous_matrix(homogenous_matrix: np.ndarray) -> np.ndarray:
+        """
+        Transpose a homogenous matrix, following the formula:
+        [R^T   , -R^T * t]
+        [  0   ,     1   ]
+
+        Args:
+        homogenous_matrix: 4x4 matrix representing the homogenous matrix
+
+        Returns:
+        out: 4x4 matrix representing the transposed homogenous matrix
+        """
         out = np.eye(4)
         out[:3, :3] = homogenous_matrix[:3, :3].transpose()
         out[:3, 3] = -out[:3, :3] @ homogenous_matrix[:3, 3]
@@ -26,6 +45,18 @@ class MatrixHelpers:
 
     @staticmethod
     def subtract_vectors(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        """
+        Subtract two vectors, following the formula:
+        [a - b]
+        [  1  ]
+
+        Args:
+        a: numpy array of shape (4, N) representing the first vector
+        b: numpy array of shape (4, N) representing the second vector
+
+        Returns:
+        out: numpy array of shape (4, N) representing the subtracted vectors
+        """
         out = a - b
         out[3, :] = 1
         return out
@@ -55,28 +86,6 @@ class MatrixHelpers:
         Returns:
         aligned_points: numpy array of shape (3, N) representing the aligned first point cloud
         """
-
-        def nearest_neighbor(src, dst):
-            """
-            Find the nearest (Euclidean distance) neighbor in dst for each point in src.
-
-            Args:
-            src: numpy array of shape (3, N) representing the source point cloud
-            dst: numpy array of shape (3, M) representing the destination point cloud
-
-            Returns:
-            distances: numpy array of shape (N,) containing the distances to the nearest neighbors
-            indices: numpy array of shape (N,) containing the indices of the nearest neighbors in dst
-            """
-            squared_distances = np.ndarray(src.shape[1])
-            indices = np.ndarray(src.shape[1], dtype=int)
-
-            for i in range(src.shape[1]):
-                tp = np.sum((dst - src[:, i : i + 1]) ** 2, axis=0)
-                squared_distances[i] = np.min(tp)
-                indices[i] = np.argmin(tp)
-
-            return squared_distances, indices
 
         def compute_transformation(points1, points2):
             """
@@ -121,8 +130,11 @@ class MatrixHelpers:
         pts1_zeroed = MatrixHelpers.subtract_vectors(points1, pts1_mean)
 
         # Iterate
-        pts1_slice_jumps = points1.shape[1] // nb_points1_required
-        pts2_slice_jumps = points2.shape[1] // nb_points2_required
+        pts1_slice_jumps = 1
+        pts2_slice_jumps = 1
+        if not share_indices:
+            pts1_slice_jumps = points1.shape[1] // nb_points1_required
+            pts2_slice_jumps = points2.shape[1] // nb_points2_required
 
         pts2 = points2[:3, ::pts2_slice_jumps]
         prev_error = np.inf
@@ -134,7 +146,7 @@ class MatrixHelpers:
             if share_indices:
                 indices = np.arange(pts1.shape[1])
             else:
-                __, indices = nearest_neighbor(pts1, pts2)
+                __, indices = MatrixHelpers.nearest_neighbor(pts1, pts2)
 
             # Compute the transformation
             r, t = compute_transformation(pts1, pts2[:, indices])
@@ -150,6 +162,29 @@ class MatrixHelpers:
         # Reproject to the initial pose of the first point cloud
         rt[:3, 3] -= (rt[:3, :3] @ pts1_mean[:3, :])[:3, 0]
         return rt
+
+    @staticmethod
+    def nearest_neighbor(src, dst):
+        """
+        Find the nearest (Euclidean distance) neighbor in dst for each point in src.
+
+        Args:
+        src: numpy array of shape (3, N) representing the source point cloud
+        dst: numpy array of shape (3, M) representing the destination point cloud
+
+        Returns:
+        distances: numpy array of shape (N,) containing the distances to the nearest neighbors
+        indices: numpy array of shape (N,) containing the indices of the nearest neighbors in dst
+        """
+        squared_distances = np.ndarray(src.shape[1])
+        indices = np.ndarray(src.shape[1], dtype=int)
+
+        for i in range(src.shape[1]):
+            tp = np.sum((dst - src[:, i : i + 1]) ** 2, axis=0)
+            squared_distances[i] = np.min(tp)
+            indices[i] = np.argmin(tp)
+
+        return squared_distances, indices
 
 
 class PlotHelpers:
@@ -172,4 +207,7 @@ class PlotHelpers:
 
     @staticmethod
     def show():
+        """
+        Easy way to show the plot.
+        """
         plt.show()
