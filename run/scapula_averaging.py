@@ -1,7 +1,7 @@
 import os
 
 import numpy as np
-from scapula import Scapula, ScapulaDataType, PlotHelpers
+from scapula import Scapula, ScapulaDataType, PlotHelpers, JointCoordinateSystem
 
 
 def get_reference_scapula(filepath: str, use_precomputed_values: bool):
@@ -9,9 +9,12 @@ def get_reference_scapula(filepath: str, use_precomputed_values: bool):
     if use_precomputed_values:
         landmarks = {}
         landmarks["IA"] = np.array([-0.42450786, 0.12748057, 5.66849068, 1.0])
-        landmarks["TS"] = np.array([-0.27999221, 0.22328151, 6.13702906, 1.0])
-        landmarks["AA"] = np.array([-0.34284121, -0.29284564, 6.23839738, 1.0])
-        landmarks["AC"] = np.array([-0.19040381, -0.29713313, 6.27516834, 1.0])
+        landmarks["TS"] = np.array([-0.2877714118750495, 0.20422405338645436, 6.176624433088216, 1.0])
+        landmarks["AA"] = np.array([-0.3332845410297929, -0.3215975587141159, 6.231563695676402, 1.0])
+        landmarks["GC"] = np.array([-0.18614066393693082, -0.24647324980998891, 6.13033391435741, 1.0])
+        landmarks["CP"] = np.array([-0.017074350751475963, -0.2542251571836168, 6.177195252266086, 1.0])
+        landmarks["SA"] = np.array([-0.1021418924890583, 0.10170073318175565, 6.2920059467986755, 1.0])
+        landmarks["AT"] = np.array([-0.1266968011420527, -0.3688454755778767, 6.265601393258909, 1.0])
     else:
         landmarks = None
 
@@ -25,12 +28,10 @@ def main():
         filepath="models/scapula/reference/PJ151-M001-scapula.ply", use_precomputed_values=True
     )
 
-    # Plot for debug
-    # from matplotlib import pyplot as plt
-
-    # fig = plt.figure(f"Scapula")
-    # ax_with_ref = fig.add_subplot(121, projection="3d")
-    ax = reference_scapula.plot_geometry(show_now=False, marker="o", color="b", s=10)
+    # # Plot for debug
+    # for key, value in reference_scapula.landmarks().items():
+    #     print(f'landmarks["{key}"] = np.array({value.tolist()})')
+    # ax = reference_scapula.plot_geometry(show_now=True, marker="o", color="b", s=5, alpha=0.1)
 
     # Sequentially analyse all the scapulas
     scapula_folder = "models/scapula/Scapula-BD-EOS/asymptomatiques/"
@@ -56,10 +57,9 @@ def main():
             filepath=filepath, reference_scapula=reference_scapula, shared_indices_with_reference=True, is_left=is_left
         )
 
-        ax = reference_scapula.plot_geometry(show_now=False, marker="o", color="b", s=10)
         scapula.plot_geometry(
-            ax=ax,
             data_type=ScapulaDataType.LOCAL,
+            show_jcs=[JointCoordinateSystem.ISB, JointCoordinateSystem.O_GC__X_TS_AA__Y_IA_TS_AA],
             show_now=True,
             color="r",
         )
