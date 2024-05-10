@@ -198,33 +198,16 @@ class MatrixHelpers:
         # Dispatch the input matrices
         rotations = np.array([np.array(mat[:3, :3]).T for mat in matrices]).T
 
-        # FOR DEBUG
-        # a = MatrixHelpers.from_euler(np.random.random((3,)) * 0.2, "xyz")
-        # b = MatrixHelpers.from_euler(np.random.random((3,)) * 0.3, "xyz")
-        # c = MatrixHelpers.from_euler(np.random.random((3,)) * 0.1, "xyz")
-        # rotations = np.array([[a.T, a.T, b.T, b.T, c.T, c.T]]).squeeze().T
-
         # Compute the average of the rotation matrices
         rotations_mean = np.mean(rotations, axis=2)
         u, s, v_T = np.linalg.svd(rotations_mean)
         average_rotation = np.dot(u, v_T)
 
         # Compute a "standard deviation"-like value
-        errors1 = []
-        errors2 = []
+        errors = []
         for i in range(rotations.shape[2]):
-            # These next two lines are strictly equivalent
-            # u, s, v_T = np.linalg.svd(np.eye(3) - rotations[:, :, i].T @ average_rotation)
-            u, s, v_T = np.linalg.svd(rotations[:, :, i] - average_rotation)
-            errors1.append(s.T @ s)
-
-            error = np.abs(np.arccos((np.trace(rotations[:, :, i].T @ average_rotation) - 1) / 2))
-            errors2.append(error)
-
-        std = np.sqrt(np.mean(errors1))
-        print(f"Standard deviation (method 1) = {std} (unit?)")
-
-        std = np.sqrt(np.mean(np.array(errors2) ** 2))
+            errors.append(np.abs(np.arccos((np.trace(rotations[:, :, i].T @ average_rotation) - 1) / 2)))
+        std = np.sqrt(np.mean(np.array(errors) ** 2))
         print(f"Standard deviation (method 2) = {std} radian")
         print(f"Standard deviation (method 2) = {std * 180 / np.pi} degrees")
 
