@@ -22,6 +22,31 @@ def get_reference_scapula(filepath: str, use_precomputed_values: bool):
     return Scapula.from_landmarks(filepath=filepath, predefined_landmarks=landmarks)
 
 
+def average_reference_systems(
+    reference_scapula: Scapula, scapulas: list[Scapula], jcs_type: JointCoordinateSystem, show: bool = True
+):
+    # Do not care about translation, so set the origin of all the reference frames to the same point
+    reference_origin = reference_scapula.get_joint_coordinates_system(jcs_type)[:3, 3]
+    all_rt = []
+    for scapula in scapulas:
+        # scapula = reference_scapula
+        rt = scapula.get_joint_coordinates_system(jcs_type)
+        rt[:3, 3] = reference_origin
+        all_rt.append(rt)
+
+    average_matrix = MatrixHelpers.average_matrices(all_rt)
+
+    if show:
+        # Plot the average scapula with all the axes
+        ax = reference_scapula.plot_geometry(show_now=False, marker="o", color="b", s=5, alpha=0.1, show_jcs=[jcs_type])
+        for rt in all_rt:
+            PlotHelpers.show_axes(rt, ax=ax)
+        PlotHelpers.show_axes(axes=average_matrix, ax=ax, linewidth=10)
+        PlotHelpers.show()
+
+    return average_matrix
+
+
 def main():
     # Load the reference scapula
     reference_scapula = get_reference_scapula(
@@ -69,24 +94,9 @@ def main():
 
         scapulas.append(scapula)
 
-    m = MatrixHelpers.average_matrices(
-        [scapula.get_joint_coordinates_system(JointCoordinateSystem.DUMMY) for scapula in scapulas]
-    )
+    # Compute the average reference system
+    average_matrix = average_reference_systems(reference_scapula, scapulas, JointCoordinateSystem.DUMMY, show=True)
 
-    # Plot the average scapula
-    ax = reference_scapula.plot_geometry(
-        show_now=False,
-        marker="o",
-        color="b",
-        s=5,
-        alpha=0.1,
-        data_type=ScapulaDataType.LOCAL,
-        show_jcs=[JointCoordinateSystem.DUMMY],
-    )
-    PlotHelpers.show_axes(ax=ax, axes=m)
-    PlotHelpers.show()
-
-    # TODO Compute the average matrices from ISB reference frame to other local coordinate systems
     # TODO Compute the "standard deviation" to the average matrices (variability)
     # TODO Show the results in a table
 

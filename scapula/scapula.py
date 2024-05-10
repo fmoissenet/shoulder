@@ -309,7 +309,7 @@ class Scapula:
 
         if show_jcs is not None:
             for jcs in show_jcs:
-                PlotHelpers.show_axes(ax, jcs(self.landmarks(data_type)))
+                PlotHelpers.show_axes(jcs(self.landmarks(data_type)), ax=ax)
 
         if show_landmarks:
             landmarks = self.landmarks(data_type, as_array=True)

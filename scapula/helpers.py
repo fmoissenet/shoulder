@@ -44,6 +44,21 @@ class MatrixHelpers:
         return out
 
     @staticmethod
+    def compute_transformation(gcs1: np.ndarray, gcs2: np.ndarray) -> np.ndarray:
+        """
+        Compute the transformation matrix from gcs1 to gcs2, following the formula:
+        gcs1.T @ gcs2
+
+        Args:
+        gcs1: 4x4 matrix representing the origin global coordinate system
+        gcs2: 4x4 matrix representing the destination global coordinate system
+
+        Returns:
+        out: 4x4 matrix representing the transformation matrix from gcs1 to gcs2
+        """
+        return MatrixHelpers.transpose_homogenous_matrix(gcs1) @ gcs2
+
+    @staticmethod
     def subtract_vectors(a: np.ndarray, b: np.ndarray) -> np.ndarray:
         """
         Subtract two vectors, following the formula:
@@ -128,6 +143,47 @@ class MatrixHelpers:
         rt[:3, 3] -= (rt[:3, :3] @ pts1_mean[:3, :])[:3, 0]
         return rt
 
+    @staticmethod
+    def from_euler(angles, sequence):
+        """
+        Create a rotation matrix from Euler angles.
+
+        Args:
+        angles: numpy array of shape (3,) representing the Euler angles
+        sequence: string representing the sequence of the Euler angles
+
+        Returns:
+        out: numpy array of shape (3, 3) representing the rotation matrix
+        """
+        out = np.eye(3)
+        for angle, axis in zip(angles, sequence):
+            if axis == "x":
+                rotation = np.array(
+                    [
+                        [1, 0, 0],
+                        [0, np.cos(angle), -np.sin(angle)],
+                        [0, np.sin(angle), np.cos(angle)],
+                    ]
+                )
+            elif axis == "y":
+                rotation = np.array(
+                    [
+                        [np.cos(angle), 0, np.sin(angle)],
+                        [0, 1, 0],
+                        [-np.sin(angle), 0, np.cos(angle)],
+                    ]
+                )
+            elif axis == "z":
+                rotation = np.array(
+                    [
+                        [np.cos(angle), -np.sin(angle), 0],
+                        [np.sin(angle), np.cos(angle), 0],
+                        [0, 0, 1],
+                    ]
+                )
+            out = np.dot(out, rotation)
+        return out
+
     def average_matrices(matrices: list[np.ndarray]) -> np.ndarray:
         """
         Compute the average of a list of matrices.
@@ -139,13 +195,41 @@ class MatrixHelpers:
         average: numpy array of shape (4, 4) representing the average matrix
         """
 
+        # Dispatch the input matrices
+        rotations = np.array([np.array(mat[:3, :3]).T for mat in matrices]).T
+
+        # FOR DEBUG
+        # a = MatrixHelpers.from_euler(np.random.random((3,)) * 0.2, "xyz")
+        # b = MatrixHelpers.from_euler(np.random.random((3,)) * 0.3, "xyz")
+        # c = MatrixHelpers.from_euler(np.random.random((3,)) * 0.1, "xyz")
+        # rotations = np.array([[a.T, a.T, b.T, b.T, c.T, c.T]]).squeeze().T
+
         # Compute the average of the rotation matrices
-        rotations = np.array([matrix[:3, :3] for matrix in matrices]).T
-        u, _, v_T = np.linalg.svd(np.mean(rotations, axis=2))
+        rotations_mean = np.mean(rotations, axis=2)
+        u, s, v_T = np.linalg.svd(rotations_mean)
         average_rotation = np.dot(u, v_T)
 
+        # Compute a "standard deviation"-like value
+        errors1 = []
+        errors2 = []
+        for i in range(rotations.shape[2]):
+            # These next two lines are strictly equivalent
+            # u, s, v_T = np.linalg.svd(np.eye(3) - rotations[:, :, i].T @ average_rotation)
+            u, s, v_T = np.linalg.svd(rotations[:, :, i] - average_rotation)
+            errors1.append(s.T @ s)
+
+            error = np.abs(np.arccos((np.trace(rotations[:, :, i].T @ average_rotation) - 1) / 2))
+            errors2.append(error)
+
+        std = np.sqrt(np.mean(errors1))
+        print(f"Standard deviation (method 1) = {std} (unit?)")
+
+        std = np.sqrt(np.mean(np.array(errors2) ** 2))
+        print(f"Standard deviation (method 2) = {std} radian")
+        print(f"Standard deviation (method 2) = {std * 180 / np.pi} degrees")
+
         # Compute the average of the translation vectors
-        translations = np.array([matrix[:3, 3] for matrix in matrices]).T
+        translations = np.array([np.array(mat[:3, 3]).T for mat in matrices]).T
         average_translation = np.mean(translations, axis=1)
 
         # Create the average matrix
@@ -215,7 +299,7 @@ class MatrixHelpers:
 
 class PlotHelpers:
     @staticmethod
-    def show_axes(ax, axes: np.ndarray):
+    def show_axes(axes: np.ndarray, ax: plt.Axes = None, linewidth: float = 1.0):
         """
         Show the axes in the plot.
 
@@ -223,13 +307,14 @@ class PlotHelpers:
         ax: matplotlib axis
         axes: 4x4 matrix representing the axes
         """
+
         origin = axes[:3, 3]
         x = axes[:3, 0]
         y = axes[:3, 1]
         z = axes[:3, 2]
-        ax.quiver(*origin, *x, color="r")
-        ax.quiver(*origin, *y, color="g")
-        ax.quiver(*origin, *z, color="b")
+        ax.quiver(*origin, *x, color="r", linewidth=linewidth)
+        ax.quiver(*origin, *y, color="g", linewidth=linewidth)
+        ax.quiver(*origin, *z, color="b", linewidth=linewidth)
 
     @staticmethod
     def show():
