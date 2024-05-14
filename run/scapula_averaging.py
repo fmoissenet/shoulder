@@ -34,38 +34,58 @@ def main():
     # ax = reference_scapula.plot_geometry(show_now=True, marker="o", color="b", s=5, alpha=0.1)
 
     # Sequentially analyse all the scapulas
-    scapula_folder = "models/scapula/Scapula-BD-EOS/asymptomatiques/"
-    scapula_files = os.listdir(scapula_folder)
+    scapula_folders = [
+        "models/scapula/Scapula-BD-EOS/asymptomatiques/",
+        "models/scapula/Scapula-BD-EOS/pathologiques/",
+    ]
 
-    left_scapula_files = ["PJ151-M021-scapula.ply", "PJ151-M015-scapula.ply"]
+    left_scapula_files = [
+        "PJ151-M021-scapula.ply",
+        "PJ151-M015-scapula.ply",
+        "PJ151-M079-scapula.ply",
+        "PJ151-M047-scapula.ply",
+        "PJ151-M070-scapula.ply",
+        "PJ151-M077-scapula.ply",
+        "PJ151-M046-scapula.ply",
+        "PJ151-M031-scapula.ply",
+        "PJ151-M072-scapula.ply",
+        "PJ151-M068-scapula.ply",
+        "PJ151-M041-scapula.ply",
+        "PJ151-M054-scapula.ply",
+        "PJ151-M058-scapula.ply",
+        "PJ151-M067-scapula.ply",
+        "PJ151-M051-scapula.ply",
+        "PJ151-M040-scapula.ply",
+        "PJ151-M049-scapula.ply",
+        "PJ151-M033-scapula.ply",
+        "PJ151-M059-scapula.ply",
+        "PJ151-M078-scapula.ply",
+    ]
 
     scapulas: list[Scapula] = []
-    for file in scapula_files:
-        print(f"Processing {file}")
+    for scapula_folder in scapula_folders:
+        scapula_files = os.listdir(scapula_folder)
+        for file in scapula_files:
+            print(f"Processing {file}")
 
-        if file in [
-            "PJ151-M008-scapula.ply",
-            "PJ151-M027-scapula.ply",
-            "PJ151-M010-scapula.ply",
-            "PJ151-M023-scapula.ply",
-        ]:
-            print("To validate")
+            # Load the scapula data
+            is_left = file in left_scapula_files
+            filepath = os.path.join(scapula_folder, file)
+            scapula = Scapula.from_reference_scapula(
+                filepath=filepath,
+                reference_scapula=reference_scapula,
+                shared_indices_with_reference=True,
+                is_left=is_left,
+            )
 
-        # Load the scapula data
-        is_left = file in left_scapula_files
-        filepath = os.path.join(scapula_folder, file)
-        scapula = Scapula.from_reference_scapula(
-            filepath=filepath, reference_scapula=reference_scapula, shared_indices_with_reference=True, is_left=is_left
-        )
+            # scapula.plot_geometry(
+            #     data_type=ScapulaDataType.LOCAL,
+            #     show_jcs=[JointCoordinateSystem.ISB, JointCoordinateSystem.O_GC__X_TS_AA__Y_IA_TS_AA],
+            #     show_now=True,
+            #     color="r",
+            # )
 
-        # scapula.plot_geometry(
-        #     data_type=ScapulaDataType.LOCAL,
-        #     show_jcs=[JointCoordinateSystem.ISB, JointCoordinateSystem.O_GC__X_TS_AA__Y_IA_TS_AA],
-        #     show_now=True,
-        #     color="r",
-        # )
-
-        scapulas.append(scapula)
+            scapulas.append(scapula)
 
     # Compute the average reference system
     rts = {}
@@ -73,7 +93,7 @@ def main():
         rts[type.name] = Scapula.compute_average_reference_system_from_reference(
             scapulas, type, reference_system=JointCoordinateSystem.ISB
         )
-    # Scapula.plot_systems_in_reference_scapula(reference_scapula, scapulas, JointCoordinateSystem.DUMMY)
+    Scapula.plot_systems_in_reference_scapula(reference_scapula, scapulas, JointCoordinateSystem.DUMMY)
 
     MatrixHelpers.export_average_to_latex(rts, reference_system=JointCoordinateSystem.ISB)
 

@@ -160,3 +160,5 @@ cython_debug/
 #.idea/
 
 run/models/scapula/
+
+*.tex
