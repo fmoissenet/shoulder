@@ -399,3 +399,65 @@ class Scapula:
         plt.show()
 
         return picked_points
+
+    @staticmethod
+    def compute_average_reference_system_from_reference(
+        scapulas: list["Scapula"],
+        jcs_type: JointCoordinateSystem,
+        reference_system: JointCoordinateSystem = None,
+    ) -> np.ndarray:
+        """
+        Compute the average reference system from the reference coordinate system to the desired coordinate system for all the
+        scapulas. If None is passed as the reference system, the average reference system will be computed based on the
+        desired coordinate system.
+
+        Args:
+        scapulas: list of scapulas
+        jcs_type: the desired joint coordinate system
+
+        Returns:
+        average_matrix: the average reference system
+        """
+        # Do not care about translation, so set the origin of all the reference frames to the same point
+        all_rt = []
+        for scapula in scapulas:
+            if reference_system is None:
+                rt_reference = np.eye(4)
+            else:
+                rt_reference = scapula.get_joint_coordinates_system(reference_system)
+            rt = scapula.get_joint_coordinates_system(jcs_type)
+
+            all_rt.append(MatrixHelpers.transpose_homogenous_matrix(rt_reference) @ rt)
+
+        return MatrixHelpers.average_matrices(all_rt, compute_std=True)
+
+    @staticmethod
+    def plot_systems_in_reference_scapula(
+        reference_scapula: "Scapula", scapulas: list["Scapula"], jcs_type: JointCoordinateSystem
+    ):
+        """
+        Plot the average reference system in the reference scapula for all the scapulas. The translation is not taken
+        into account so it is easier to compare the axes.
+
+        Args:
+        reference_scapula: the reference scapula
+        scapulas: list of scapulas
+        jcs_type: the desired joint coordinate system
+        """
+        # Do not care about translation, so set the origin of all the reference frames to the same point
+        reference_origin = reference_scapula.get_joint_coordinates_system(jcs_type)[:3, 3]
+        all_rt = []
+        for scapula in scapulas:
+            # scapula = reference_scapula
+            rt = scapula.get_joint_coordinates_system(jcs_type)
+            rt[:3, 3] = reference_origin
+            all_rt.append(rt)
+
+        average_matrix = MatrixHelpers.average_matrices(all_rt)
+
+        # Plot the average scapula with all the axes
+        ax = reference_scapula.plot_geometry(show_now=False, marker="o", color="b", s=5, alpha=0.1, show_jcs=[jcs_type])
+        for rt in all_rt:
+            PlotHelpers.show_axes(rt, ax=ax)
+        PlotHelpers.show_axes(axes=average_matrix, ax=ax, linewidth=10)
+        PlotHelpers.show()

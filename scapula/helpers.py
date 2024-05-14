@@ -2,6 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+from .enums import JointCoordinateSystem
+
+
 class DataHelpers:
     @staticmethod
     def rough_normalize(data: np.ndarray) -> np.ndarray:
@@ -184,15 +187,21 @@ class MatrixHelpers:
             out = np.dot(out, rotation)
         return out
 
-    def average_matrices(matrices: list[np.ndarray]) -> np.ndarray:
+    def average_matrices(matrices: list[np.ndarray], compute_std: bool = False) -> np.ndarray:
         """
-        Compute the average of a list of matrices.
+        Compute the average of a list of matrices. If compute_std is True, also compute the standard deviation of the
+        rotation matrices. This is done by computing the standard deviation of the angle of the rotation matrices. To
+        compute the angle, we use the formula:
+        angle = arccos((trace(R1.T @ R2) - 1) / 2)
+        where "R1.T @ R2" is the rotation matrix between a matrix and the average matrix.
 
         Args:
-        matrices: numpy array of shape (N, 4, 4) representing the list of matrices
+        matrices: list of numpy arrays of shape (4, 4) representing the homogenous matrices to average
+        compute_std: whether to compute the standard deviation of the rotation matrices
 
         Returns:
         average: numpy array of shape (4, 4) representing the average matrix
+        std: tuple of floats representing the standard deviation of the rotation and translation matrices respectively
         """
 
         # Dispatch the input matrices
@@ -200,16 +209,8 @@ class MatrixHelpers:
 
         # Compute the average of the rotation matrices
         rotations_mean = np.mean(rotations, axis=2)
-        u, s, v_T = np.linalg.svd(rotations_mean)
-        average_rotation = np.dot(u, v_T)
-
-        # Compute a "standard deviation"-like value
-        errors = []
-        for i in range(rotations.shape[2]):
-            errors.append(np.abs(np.arccos((np.trace(rotations[:, :, i].T @ average_rotation) - 1) / 2)))
-        std = np.sqrt(np.mean(np.array(errors) ** 2))
-        print(f"Standard deviation (method 2) = {std} radian")
-        print(f"Standard deviation (method 2) = {std * 180 / np.pi} degrees")
+        u, _, v_T = np.linalg.svd(rotations_mean)
+        average_rotation = u @ v_T
 
         # Compute the average of the translation vectors
         translations = np.array([np.array(mat[:3, 3]).T for mat in matrices]).T
@@ -220,7 +221,18 @@ class MatrixHelpers:
         out[:3, :3] = average_rotation
         out[:3, 3] = average_translation
 
-        return out
+        if not compute_std:
+            return out
+
+        # If we get here, we need to compute the standard deviation of the homogeneous matrices
+        error_angles = []
+        for i in range(rotations.shape[2]):
+            error_angles.append(np.arccos((np.trace(rotations[:, :, i].T @ average_rotation) - 1) / 2))
+        rotation_std = np.sqrt(np.mean(np.array(error_angles) ** 2))
+
+        translation_std = np.std(np.linalg.norm(translations, axis=0))
+
+        return out, (rotation_std, translation_std)
 
     def compute_best_fit_transformation(points1, points2):
         """
@@ -278,6 +290,62 @@ class MatrixHelpers:
             indices[i] = np.argmin(tp)
 
         return squared_distances, indices
+
+    @staticmethod
+    def export_average_to_latex(
+        average_matrix: dict[str, tuple[np.ndarray, tuple[float, float]]], reference_system: JointCoordinateSystem
+    ):
+        """
+        Export the average reference system to a LaTeX table. The values are expected to be in the format output by
+        the average_matrices function with the compute_std flag set to True and put in a dictionary with the key being
+        the name of the reference system.
+
+        Args:
+        average_matrix (dict[str, tuple[np.ndarray, float, float]]): The average reference system including the standard deviations
+        of the form {key: (average_matrix, standard_deviations of rotation, standard_deviations of translation)}
+        """
+
+        all_average_str = []
+        for key, average in average_matrix.items():
+            key = key.replace("_", "\\_")
+
+            row = f"{key} & \\begin{{tabular}}{{cccc}}\n"
+            row += f"\\\\\n".join("&".join(f"{value:.2f}" for value in row) for row in average[0])
+            row += f"\\end{{tabular}} & "
+            row += f"{average[1][0]:.2f} / {average[1][1]:.2f}\\\\\n"
+
+            all_average_str.append(row)
+
+        all_average_str = f"\\cmidrule(lr){{1-3}}\n".join(all_average_str)
+
+        latex_content = f"""
+\\documentclass{{article}}
+\\usepackage{{amsmath}}
+\\usepackage{{array}}
+\\usepackage{{booktabs}}
+\\usepackage{{geometry}}
+\\usepackage{{makecell}}
+
+\\begin{{document}}
+
+\\begin{{table}}[h!]
+\\centering
+\\begin{{tabular}}{{lcc}}
+\\toprule
+\\makecell{{\\textbf{{From {reference_system.name}}} \\\\ \\textbf{{to}} }} & \\makecell{{\\textbf{{Average transformation}} \\\\ \\textbf{{matrix}}}} & \\makecell{{\\textbf{{SD}} \\\\ \\textbf{{(Angle/Trans)}}}} \\\\
+\\midrule
+{all_average_str}
+\\bottomrule
+\\end{{tabular}}
+\\caption{{Average transformation matrix from {reference_system.name} and Standard Deviation (SD) of the rotation angle and translation.}}
+\\label{{tab:summary}}
+\\end{{table}}
+
+\\end{{document}}
+        """
+
+        with open("average_transformations.tex", "w") as file:
+            file.write(latex_content)
 
 
 class PlotHelpers:

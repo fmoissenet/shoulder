@@ -22,31 +22,6 @@ def get_reference_scapula(filepath: str, use_precomputed_values: bool):
     return Scapula.from_landmarks(filepath=filepath, predefined_landmarks=landmarks)
 
 
-def average_reference_systems(
-    reference_scapula: Scapula, scapulas: list[Scapula], jcs_type: JointCoordinateSystem, show: bool = True
-):
-    # Do not care about translation, so set the origin of all the reference frames to the same point
-    reference_origin = reference_scapula.get_joint_coordinates_system(jcs_type)[:3, 3]
-    all_rt = []
-    for scapula in scapulas:
-        # scapula = reference_scapula
-        rt = scapula.get_joint_coordinates_system(jcs_type)
-        rt[:3, 3] = reference_origin
-        all_rt.append(rt)
-
-    average_matrix = MatrixHelpers.average_matrices(all_rt)
-
-    if show:
-        # Plot the average scapula with all the axes
-        ax = reference_scapula.plot_geometry(show_now=False, marker="o", color="b", s=5, alpha=0.1, show_jcs=[jcs_type])
-        for rt in all_rt:
-            PlotHelpers.show_axes(rt, ax=ax)
-        PlotHelpers.show_axes(axes=average_matrix, ax=ax, linewidth=10)
-        PlotHelpers.show()
-
-    return average_matrix
-
-
 def main():
     # Load the reference scapula
     reference_scapula = get_reference_scapula(
@@ -90,15 +65,17 @@ def main():
         #     color="r",
         # )
 
-        # TODO Automatically find the distance between corresponding indices to see if they match
-
         scapulas.append(scapula)
 
     # Compute the average reference system
-    average_matrix = average_reference_systems(reference_scapula, scapulas, JointCoordinateSystem.DUMMY, show=True)
+    rts = {}
+    for type in JointCoordinateSystem:
+        rts[type.name] = Scapula.compute_average_reference_system_from_reference(
+            scapulas, type, reference_system=JointCoordinateSystem.ISB
+        )
+    # Scapula.plot_systems_in_reference_scapula(reference_scapula, scapulas, JointCoordinateSystem.DUMMY)
 
-    # TODO Compute the "standard deviation" to the average matrices (variability)
-    # TODO Show the results in a table
+    MatrixHelpers.export_average_to_latex(rts, reference_system=JointCoordinateSystem.ISB)
 
 
 if __name__ == "__main__":
