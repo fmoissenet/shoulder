@@ -25,7 +25,10 @@ def get_reference_scapula(filepath: str, use_precomputed_values: bool):
 def main():
     # Load the reference scapula
     reference_scapula = get_reference_scapula(
-        filepath="models/scapula/reference/PJ151-M001-scapula.ply", use_precomputed_values=True
+        filepath="models/scapula/reference/PJ151-M001-scapula.ply",
+        use_precomputed_values=True,
+        # filepath="models/scapula/Scapula-BD-FHOrtho/Scapula/PJ151-M081-scapula.stl",
+        # use_precomputed_values=False,
     )
 
     # # Plot for debug
@@ -35,8 +38,9 @@ def main():
 
     # Sequentially analyse all the scapulas
     scapula_folders = [
-        "models/scapula/Scapula-BD-EOS/asymptomatiques/",
-        "models/scapula/Scapula-BD-EOS/pathologiques/",
+        # "models/scapula/Scapula-BD-EOS/asymptomatiques/",
+        # "models/scapula/Scapula-BD-EOS/pathologiques/",
+        "models/scapula/Scapula-BD-FHOrtho/Scapula/",
     ]
 
     left_scapula_files = [
@@ -60,6 +64,13 @@ def main():
         "PJ151-M033-scapula.ply",
         "PJ151-M059-scapula.ply",
         "PJ151-M078-scapula.ply",
+        "PJ151-M084-scapula.stl",
+        "PJ151-M090-scapula.stl",
+    ]
+
+    failing_files = [
+        "PJ151-M082-scapula.stl",
+        "PJ151-M086-scapula.stl",
     ]
 
     scapulas: list[Scapula] = []
@@ -74,16 +85,17 @@ def main():
             scapula = Scapula.from_reference_scapula(
                 filepath=filepath,
                 reference_scapula=reference_scapula,
-                shared_indices_with_reference=True,
+                shared_indices_with_reference="Scapula-BD-EOS" in scapula_folder,
                 is_left=is_left,
             )
 
-            # scapula.plot_geometry(
-            #     data_type=ScapulaDataType.LOCAL,
-            #     show_jcs=[JointCoordinateSystem.ISB, JointCoordinateSystem.O_GC__X_TS_AA__Y_IA_TS_AA],
-            #     show_now=True,
-            #     color="r",
-            # )
+            scapula.plot_geometry(
+                ax=reference_scapula.plot_geometry(show_now=False, marker="o", color="b", s=5, alpha=0.1),
+                data_type=ScapulaDataType.LOCAL,
+                show_jcs=[JointCoordinateSystem.ISB, JointCoordinateSystem.O_GC__X_TS_AA__Y_IA_TS_AA],
+                show_now=True,
+                color="r",
+            )
 
             scapulas.append(scapula)
 

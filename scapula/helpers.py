@@ -88,6 +88,8 @@ class MatrixHelpers:
         nb_points1_required: int = 3000,
         nb_points2_required: int = 3000,
         share_indices: bool = False,
+        initial_rt: np.ndarray = np.eye(4),
+        return_points_error: bool = False,
     ):
         """
         Perform ICP to align points1 to points2.
@@ -100,14 +102,13 @@ class MatrixHelpers:
         nb_points1_required: number of points to use in the first point cloud
         nb_points2_required: number of points to use in the second point cloud
         share_indices: whether to use the same indices for both point clouds (much faster as it skips the nearest neighbor search)
+        initial_rt: initial transformation matrix
+        return_points_error: whether to return the points error or not
 
         Returns:
         aligned_points: numpy array of shape (3, N) representing the aligned first point cloud
+        points_error: a float representing the norm of the error between the aligned points and the second point cloud
         """
-
-        # Initial transformation (identity)
-        r = np.eye(3)
-        t = np.zeros((3, 1))
 
         # Copy the points
         pts1_mean = np.concatenate([np.mean(points1[:3, :], axis=1, keepdims=True), [[1]]])
@@ -122,7 +123,7 @@ class MatrixHelpers:
 
         pts2 = points2[:3, ::pts2_slice_jumps]
         prev_error = np.inf
-        rt = np.eye(4)
+        rt = initial_rt
         for _ in range(max_iterations):
             pts1 = (rt @ pts1_zeroed[:, ::pts1_slice_jumps])[:3, :]
 
@@ -142,18 +143,27 @@ class MatrixHelpers:
                 break
             prev_error = squared_error
 
+        if return_points_error:
+            pts1 = (rt @ pts1_zeroed[:, ::pts1_slice_jumps])[:3, :]
+            points_error_squared, _ = MatrixHelpers.nearest_neighbor(pts1, pts2)
+            points_error = np.sqrt(np.mean(points_error_squared))
+
         # Reproject to the initial pose of the first point cloud
         rt[:3, 3] -= (rt[:3, :3] @ pts1_mean[:3, :])[:3, 0]
+
+        if return_points_error:
+            return rt, points_error
         return rt
 
     @staticmethod
-    def from_euler(angles, sequence):
+    def from_euler(angles, sequence, homogenous: bool = False):
         """
         Create a rotation matrix from Euler angles.
 
         Args:
         angles: numpy array of shape (3,) representing the Euler angles
         sequence: string representing the sequence of the Euler angles
+        homogenous: whether to return a homogenous matrix (that is a 4x4 matrix) or a rotation matrix (3x3 matrix)
 
         Returns:
         out: numpy array of shape (3, 3) representing the rotation matrix
@@ -185,6 +195,10 @@ class MatrixHelpers:
                     ]
                 )
             out = np.dot(out, rotation)
+
+        if homogenous:
+            out = np.eye(4)
+            out[:3, :3] = rotation
         return out
 
     def average_matrices(matrices: list[np.ndarray], compute_std: bool = False) -> np.ndarray:
@@ -224,7 +238,7 @@ class MatrixHelpers:
         if not compute_std:
             return out
 
-        # If we get here, we need to compute the standard deviation of the homogeneous matrices
+        # If we get here, we need to compute the standard deviation of the homogenous matrices
         error_angles = []
         for i in range(rotations.shape[2]):
             error_angles.append(np.arccos((np.trace(rotations[:, :, i].T @ average_rotation) - 1) / 2))
@@ -254,16 +268,16 @@ class MatrixHelpers:
         centered2 = points2 - centroid2
 
         # Compute covariance matrix
-        H = np.dot(centered1, centered2.T)
+        h = centered1 @ centered2.T
 
         # Singular Value Decomposition
-        U, _, Vt = np.linalg.svd(H)
+        u, _, v_T = np.linalg.svd(h)
 
         # Rotation matrix
-        r = np.dot(Vt.T, U.T)
+        r = (u @ v_T).T
 
         # Translation vector
-        t = centroid2 - np.dot(r, centroid1)
+        t = centroid2 - r @ centroid1
 
         return np.concatenate([np.concatenate([r, t], axis=1), [[0, 0, 0, 1]]])
 

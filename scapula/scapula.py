@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
 from plyfile import PlyData
+from stl import Mesh
 
 from .enums import ScapulaDataType, JointCoordinateSystem
 from .helpers import DataHelpers, PlotHelpers, MatrixHelpers
@@ -26,7 +27,13 @@ def _load_scapula_geometry(file_path: str, is_left: bool) -> np.ndarray:
             tp = np.asarray(plydata["vertex"])
             data = np.array((tp["x"], tp["y"], tp["z"]))
             data = np.concatenate((data, np.ones((1, data.shape[1]))))
-        data
+
+    elif extension == "stl":
+        mesh = Mesh.from_file(file_path)
+        all_vertices = mesh.vectors.reshape(-1, 3)
+        data = np.unique(all_vertices, axis=0).T
+        data = MatrixHelpers.from_euler(np.array([-np.pi / 4, 0, 0]), "xyz") @ data
+        data = np.concatenate((data, np.ones((1, data.shape[1]))))
 
     else:
         raise NotImplementedError(f"The file extension {extension} is not supported yet.")
@@ -108,11 +115,28 @@ class Scapula:
         # Find the landmarks so we can call the from_landmarks constructor
 
         # Compute the local data
-        gcs_T = MatrixHelpers.icp(
+        expected_maximal_error = 0.01  # 1% of the scapula size
+        gcs_T, error = MatrixHelpers.icp(
             scapula.normalized_raw_data,
             reference_scapula.get_data(ScapulaDataType.LOCAL),
             share_indices=shared_indices_with_reference,
+            return_points_error=True,
         )
+        if not shared_indices_with_reference and error > expected_maximal_error:
+            # Try a second type but rotating the values to see if it improves the result
+            # It is useless to try this in a shared indices scenario as the indices ensure that the rotation is correct
+            # by definition
+            gcs_T_tp, error_tp = MatrixHelpers.icp(
+                scapula.normalized_raw_data,
+                reference_scapula.get_data(ScapulaDataType.LOCAL),
+                share_indices=False,
+                initial_rt=MatrixHelpers.from_euler([np.pi], "z", homogenous=True) @ gcs_T,
+                return_points_error=True,
+            )
+            # Take the best result
+            if error_tp < error:
+                gcs_T = gcs_T_tp
+
         local_data = gcs_T @ scapula.normalized_raw_data
 
         # Find the landmarks in the normalized data
@@ -342,9 +366,11 @@ class Scapula:
         ax = fig.add_subplot(111, projection="3d")
 
         data = self.get_data(data_type)
-        self.plot_geometry(ax=ax, data_type=data_type, show_landmarks=False, show_axes=False)
+        self.plot_geometry(ax=ax, data_type=data_type, show_landmarks=False)
         scatter = ax.scatter(np.nan, np.nan, np.nan, ".", c="r")
         scatter.set_sizes([50])
+        if initial_guesses is None:
+            initial_guesses = {}
 
         # Add the next button
         axnext = plt.axes([0.81, 0.05, 0.1, 0.075])
