@@ -3,6 +3,11 @@ import os
 import numpy as np
 from scapula import Scapula, ScapulaDataType, PlotHelpers, JointCoordinateSystem, MatrixHelpers
 
+# ID | Definition | Positioning strategy
+# AA | Acromial angle | First angle higher than 45° from the lateral edge of the acromion
+# IA | Inferior angle | Most distal point of the scapula along the medial edge of the scapula
+# TS | Root of the scapula spine | Apex of the root triangle, closest to the scapula spine
+
 
 def get_reference_scapula(filepath: str, use_precomputed_values: bool):
     # Get some remarkable points
@@ -98,6 +103,8 @@ def main():
             )
 
             scapulas.append(scapula)
+            # TODO Use pointing method if STL are used (not morphing the reference scapula)
+            # TODO Save the values so they can be reused based on their respective file_path
 
     # Compute the average reference system
     rts = {}
