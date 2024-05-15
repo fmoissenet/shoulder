@@ -36,5 +36,13 @@
             "cwd": "${workspaceFolder}/run",
             "console": "integratedTerminal"
         },
+        {
+            "name": "Scapula statistical model",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run/statistical_model_test.py",
+            "cwd": "${workspaceFolder}/run",
+            "console": "integratedTerminal"
+        },
     ]
 }
