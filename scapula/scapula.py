@@ -1,3 +1,7 @@
+import math
+import os
+from typing import Generator
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
@@ -45,19 +49,24 @@ def _load_scapula_geometry(file_path: str, is_left: bool) -> np.ndarray:
 
 
 class Scapula:
-    def __init__(self, filepath: str, is_left: bool) -> None:
+    def __init__(self, geometry: str | np.ndarray, is_left: bool) -> None:
         """
         Private constructor to load the scapula geometry from a file. This should not be called directly.
 
         Args:
-        filepath: path to the scapula geometry file
+        geometry: Whether a file path to the scapula geometry or the scapula geometry itself
         is_left: whether the scapula is the left one or a right one. If left, the scapula will be mirrored.
 
         Returns:
         None
         """
 
-        self.raw_data = _load_scapula_geometry(filepath, is_left=is_left)
+        if isinstance(geometry, str):
+            self.raw_data = _load_scapula_geometry(geometry, is_left=is_left)
+        elif isinstance(geometry, np.ndarray):
+            self.raw_data = geometry
+        else:
+            raise ValueError("Invalid geometry type")
         self.normalized_raw_data = DataHelpers.rough_normalize(self.raw_data)
 
         # The following fields need to be filled by the public constructor
@@ -67,13 +76,16 @@ class Scapula:
 
     @classmethod
     def from_landmarks(
-        cls, filepath: str, predefined_landmarks: dict[str, np.ndarray] = None, is_left: bool = False
+        cls,
+        geometry: str | np.ndarray,
+        predefined_landmarks: dict[str, np.ndarray] = None,
+        is_left: bool = False,
     ) -> "Scapula":
         """
         Public constructor to create a Scapula object from landmarks.
 
         Args:
-        filepath: path to the scapula geometry file
+        geometry: Whether a file path to the scapula geometry or the scapula geometry itself
         predefined_landmarks: dictionary containing the landmarks as keys and the coordinates as values in RAW_NORMALIZED.
         If None, the user will be prompted to select the landmarks on the scapula geometry.
         is_left: whether the scapula is the left one or a right one. If left, the scapula will be mirrored.
@@ -81,7 +93,7 @@ class Scapula:
         Returns:
         Scapula object
         """
-        scapula = cls(filepath=filepath, is_left=is_left)
+        scapula = cls(geometry=geometry, is_left=is_left)
 
         # Fill the mandatory fields that are not filled by the private constructor
         scapula._fill_mandatory_fields(predefined_landmarks=predefined_landmarks)
@@ -92,7 +104,7 @@ class Scapula:
     @classmethod
     def from_reference_scapula(
         cls,
-        filepath: str,
+        geometry: str | np.ndarray,
         reference_scapula: "Scapula",
         shared_indices_with_reference: bool = False,
         is_left: bool = False,
@@ -101,7 +113,7 @@ class Scapula:
         Public constructor to create a Scapula object from a reference scapula.
 
         Args:
-        filepath: path to the scapula geometry file
+        geometry: Whether a file path to the scapula geometry or the scapula geometry itself
         reference_scapula: reference scapula object
         shared_indices_with_reference: whether to use the same indices for both scapulas (much faster as it skips the
         nearest neighbor search)
@@ -110,7 +122,7 @@ class Scapula:
         Returns:
         Scapula object
         """
-        scapula = cls(filepath=filepath, is_left=is_left)
+        scapula = cls(geometry=geometry, is_left=is_left)
 
         # Find the landmarks so we can call the from_landmarks constructor
 
@@ -154,6 +166,125 @@ class Scapula:
         # Create and return the scapula object
         scapula._fill_mandatory_fields(predefined_landmarks=landmarks)
         return scapula
+
+    @classmethod
+    def generator(
+        cls,
+        reference_scapula: "Scapula",
+        models_folder: str,
+        number_to_generate: int = 1,
+        model: str = "A",
+        mode_ranges=None,
+    ) -> Generator["Scapula", None, None]:
+        """
+        Function to generate a surface model from a PCA statistical model, based on the chosen statistical model type
+        It yields the produced surface model
+
+        Args:
+        reference_scapula: the reference scapula
+        models_folder: directory where the statistical models are located
+        number_to_generate: number of models to generate
+        model: statistical model type (A, P or H), default is A
+        mode_ranges: dictionary with the number of modes for each statistical model, default is {"A": 7, "P": 8, "H": 18}
+
+        Returns:
+        Iterator of the produced surface model
+        """
+
+        def _generate(
+            mode: list[int], mean_model: np.ndarray, pca_eigen_vectors: np.ndarray, pca_eigen_values: np.ndarray
+        ) -> "Scapula":
+            """
+            Function to create a surface model from a PCA statistical model
+
+            Args:
+            mode: number of modes to apply
+            mean_model: mean model
+            pca_eigen_vectors: eigen vectors estimated by PCA
+            pca_eigen_values: eigen values estimated by PCA
+
+            Returns:
+            The produced surface model
+            """
+
+            # b is a vector of floats to apply to each mode of variation
+            full_b = np.zeros(pca_eigen_values.shape)
+            for i in mode:
+                # A uniformly randomized value between statistically acceptable bounds +/-3 * sqrt(eigen_value)
+                new_value = np.random.uniform(-3 * math.sqrt(pca_eigen_values[i]), 3 * math.sqrt(pca_eigen_values[i]))
+                full_b[i] = new_value
+
+            # Calculate P * b
+            pca_applied = pca_eigen_vectors.dot(full_b)
+
+            # Create a new model: mean_model + pca_applied
+            generated_model = mean_model.T.flatten() + pca_applied
+            geometry = np.reshape(generated_model, (-1, 3)).T
+            return Scapula.from_reference_scapula(
+                geometry=geometry,
+                reference_scapula=reference_scapula,
+                shared_indices_with_reference=True,
+                is_left=False,
+            )
+
+        def _read_vertices(path) -> np.ndarray:
+            """
+            Function to read the vertices of a 3D model
+
+            Args:
+            path: path to the 3D model
+
+            Returns:
+            vertices of the 3D model
+            """
+            ply_data = PlyData.read(path)
+            vertices_tp = np.asarray(ply_data["vertex"])
+            return np.array((vertices_tp["x"], vertices_tp["y"], vertices_tp["z"]))
+
+        def _load_statistical_model() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+            """
+            Function to load the statistical model and its parameters
+
+            Returns:
+            mean model, vertices of the mean model, eigen vectors, eigen values
+            """
+            if model not in ("A", "P", "H"):
+                raise ValueError("Invalid model type, choose between 'A', 'P' or 'H'")
+
+            model_stat = {
+                "A": {
+                    "mean_model_path": os.path.join(models_folder, "PJ116_scapula_A_avg.ply"),
+                    "pca_eigen_vectors": os.path.join(models_folder, "PJ116_eigen_vectors_scapula_A.csv"),
+                    "pca_eigen_values": os.path.join(models_folder, "PJ116_eigen_values_scapula_A.csv"),
+                },
+                "P": {
+                    "mean_model_path": os.path.join(models_folder, "PJ116_scapula_P_avg.ply"),
+                    "pca_eigen_vectors": os.path.join(models_folder, "PJ116_eigen_vectors_scapula_P.csv"),
+                    "pca_eigen_values": os.path.join(models_folder, "PJ116_eigen_values_scapula_P.csv"),
+                },
+                "H": {
+                    "mean_model_path": os.path.join(models_folder, "FHOrtho_scapula_avg.ply"),
+                    "pca_eigen_vectors": os.path.join(models_folder, "PJ116_eigen_vectors_scapula_FHOrtho.csv"),
+                    "pca_eigen_values": os.path.join(models_folder, "PJ116_eigen_values_scapula_FHOrtho.csv"),
+                },
+            }
+
+            mean_model = _read_vertices(model_stat[model]["mean_model_path"])
+            pca_eigen_vectors = np.loadtxt(model_stat[model]["pca_eigen_vectors"], delimiter=";", dtype=float)
+            pca_eigen_values = np.loadtxt(model_stat[model]["pca_eigen_values"], delimiter=";", dtype=float)
+
+            return mean_model, pca_eigen_vectors, pca_eigen_values
+
+        if mode_ranges is None:
+            mode_ranges = {"A": 7, "P": 8, "H": 18}
+        mode = range(mode_ranges[model])
+
+        # Read mean model and PCA parameters (eigen vectors and values) according to the chosen statistical model
+        statistical_model = _load_statistical_model()
+
+        # Generate new models: new_model = mean_model + P * b
+        for _ in range(number_to_generate):
+            yield _generate(mode, *statistical_model)
 
     def _fill_mandatory_fields(self, predefined_landmarks: dict[str, np.ndarray] = None) -> None:
         """

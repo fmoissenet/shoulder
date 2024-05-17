@@ -241,12 +241,26 @@ class MatrixHelpers:
         # If we get here, we need to compute the standard deviation of the homogenous matrices
         error_angles = []
         for i in range(rotations.shape[2]):
-            error_angles.append(np.arccos((np.trace(rotations[:, :, i].T @ average_rotation) - 1) / 2))
-        rotation_std = np.sqrt(np.mean(np.array(error_angles) ** 2))
+            error_angles.append(MatrixHelpers.angle_between_rotations(rotations[:, :, i], average_rotation))
+        rotation_std = np.std(error_angles)
 
         translation_std = np.std(np.linalg.norm(translations, axis=0))
 
         return out, (rotation_std, translation_std)
+
+    def angle_between_rotations(rotation1: np.ndarray, rotation2: np.ndarray) -> float:
+        """
+        Compute the angle between two rotations, following the formula:
+        angle = arccos((trace(R1.T @ R2) - 1) / 2)
+
+        Args:
+        rotation1: numpy array of shape (3, 3) representing the first rotation matrix
+        rotation2: numpy array of shape (3, 3) representing the second rotation matrix
+
+        Returns:
+        angle: a float representing the angle between the two rotations
+        """
+        return np.arccos((np.trace(rotation1[:3, :3].T @ rotation2[:3, :3]) - 1) / 2)
 
     def compute_best_fit_transformation(points1, points2):
         """
@@ -305,9 +319,40 @@ class MatrixHelpers:
 
         return squared_distances, indices
 
+
+class PlotHelpers:
     @staticmethod
-    def export_average_to_latex(
-        average_matrix: dict[str, tuple[np.ndarray, tuple[float, float]]], reference_system: JointCoordinateSystem
+    def show_axes(axes: np.ndarray, ax: plt.Axes = None, translate_to: np.ndarray = None, **kwargs):
+        """
+        Show the axes in the plot.
+
+        Args:
+        ax: matplotlib axis
+        axes: 4x4 matrix representing the axes
+        translate_to: numpy array of shape (3,) representing the translation to apply to the axes
+        kwargs: additional arguments to pass to the quiver function
+        """
+
+        origin = axes[:3, 3] if translate_to is None else translate_to
+        x = axes[:3, 0]
+        y = axes[:3, 1]
+        z = axes[:3, 2]
+        ax.quiver(*origin, *x, color="r", **kwargs)
+        ax.quiver(*origin, *y, color="g", **kwargs)
+        ax.quiver(*origin, *z, color="b", **kwargs)
+
+    @staticmethod
+    def show():
+        """
+        Easy way to show the plot.
+        """
+        plt.show()
+
+    @staticmethod
+    def export_average_matrix_to_latex(
+        file_path: str,
+        average_matrix: dict[str, tuple[np.ndarray, tuple[float, float]]],
+        reference_system: JointCoordinateSystem,
     ):
         """
         Export the average reference system to a LaTeX table. The values are expected to be in the format output by
@@ -315,6 +360,7 @@ class MatrixHelpers:
         the name of the reference system.
 
         Args:
+        file_path (str): The path to the LaTeX file
         average_matrix (dict[str, tuple[np.ndarray, float, float]]): The average reference system including the standard deviations
         of the form {key: (average_matrix, standard_deviations of rotation, standard_deviations of translation)}
         """
@@ -324,9 +370,9 @@ class MatrixHelpers:
             key = key.replace("_", "\\_")
 
             row = f"{key} & \\begin{{tabular}}{{cccc}}\n"
-            row += f"\\\\\n".join("&".join(f"{value:.2f}" for value in row) for row in average[0])
+            row += f"\\\\\n".join("&".join(f"{value:.4f}" for value in row) for row in average[0])
             row += f"\\end{{tabular}} & "
-            row += f"{average[1][0]:.2f} / {average[1][1]:.2f}\\\\\n"
+            row += f"{average[1][0]:.4f} / {average[1][1]:.4f}\\\\\n"
 
             all_average_str.append(row)
 
@@ -351,39 +397,62 @@ class MatrixHelpers:
 {all_average_str}
 \\bottomrule
 \\end{{tabular}}
-\\caption{{Average transformation matrix from {reference_system.name} and Standard Deviation (SD) of the rotation angle and translation.}}
-\\label{{tab:summary}}
+\\caption{{Average transformation matrix and standard deviation (SD) of the transformation (rotation and translation) from {reference_system.name}.}}
+\\label{{tab:summary{reference_system.name}}}
 \\end{{table}}
 
 \\end{{document}}
         """
 
-        with open("average_transformations.tex", "w") as file:
+        with open(file_path, "w") as file:
             file.write(latex_content)
 
-
-class PlotHelpers:
     @staticmethod
-    def show_axes(axes: np.ndarray, ax: plt.Axes = None, linewidth: float = 1.0):
+    def export_error_angles_to_latex(
+        file_path: str,
+        error_angles: dict[str, float],
+        reference_name: str
+    ):
         """
-        Show the axes in the plot.
+        Export the average reference system to a LaTeX table. The values are expected to be in the format output by
+        the average_matrices function with the compute_std flag set to True and put in a dictionary with the key being
+        the name of the reference system.
 
         Args:
-        ax: matplotlib axis
-        axes: 4x4 matrix representing the axes
+        file_path (str): The path to the LaTeX file
+        error_angles (dict[str, float]): The error angles between the reference system and the average reference system
         """
 
-        origin = axes[:3, 3]
-        x = axes[:3, 0]
-        y = axes[:3, 1]
-        z = axes[:3, 2]
-        ax.quiver(*origin, *x, color="r", linewidth=linewidth)
-        ax.quiver(*origin, *y, color="g", linewidth=linewidth)
-        ax.quiver(*origin, *z, color="b", linewidth=linewidth)
+        all_error_str = []
+        for key, error in error_angles.items():
+            all_error_str.append(f"{key.replace("_", "\\_")} & {error:0.4f} \\\\")
+        all_error_str = f"\n".join(all_error_str)
 
-    @staticmethod
-    def show():
+        latex_content = f"""
+\\documentclass{{article}}
+\\usepackage{{amsmath}}
+\\usepackage{{array}}
+\\usepackage{{booktabs}}
+\\usepackage{{geometry}}
+\\usepackage{{makecell}}
+
+\\begin{{document}}
+
+\\begin{{table}}[h!]
+\\centering
+\\begin{{tabular}}{{lc}}
+\\toprule
+\\makecell{{\\textbf{{Angle from}} \\\\ \\textbf{{{reference_name} to}} }} & \\textbf{{Angle}} \\\\
+\\midrule
+{all_error_str}
+\\bottomrule
+\\end{{tabular}}
+\\caption{{Angle between the means and the {reference_name} reference.}}
+\\label{{tab:angles{reference_name}}}
+\\end{{table}}
+
+\\end{{document}}
         """
-        Easy way to show the plot.
-        """
-        plt.show()
+
+        with open(file_path, "w") as file:
+            file.write(latex_content)
