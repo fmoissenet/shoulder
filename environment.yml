@@ -17,5 +17,6 @@ dependencies:
 - casadi
 - ipopt
 - plyfile
+- numpy-stl
 - pip:
   - myosuite
