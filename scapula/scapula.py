@@ -334,7 +334,7 @@ class Scapula:
         Returns:
         landmark_names: the names of the landmarks
         """
-        return ["IA", "TS", "AA", "GC", "CP", "SA", "AT"]
+        return ["IA", "TS", "SA", "AA", "AC", "AT", "CP", "GC", "IE", "SE"]
 
     @property
     def landmarks_long_names(self):
@@ -347,11 +347,14 @@ class Scapula:
         return [
             "Inferior Angulus",
             "Trighonum Spinae",
-            "Acromion Angle",
-            "Glenoid Center",
-            "Coracoid Process",
             "Superior Angle",
+            "Acromion Angle",
+            "Dorsal of Acromioclavicular joint",
             "Acromial Tip",
+            "Coracoid Process",
+            "Glenoid Center",
+            "Inferior Edge of glenoid",
+            "Superior Edge of glenoid",
         ]
 
     def get_joint_coordinates_system(
