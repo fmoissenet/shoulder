@@ -1,6 +1,7 @@
+import os
+
 import numpy as np
 import matplotlib.pyplot as plt
-
 
 from .enums import JointCoordinateSystem
 
@@ -201,7 +202,7 @@ class MatrixHelpers:
             out[:3, :3] = rotation
         return out
 
-    def average_matrices(matrices: list[np.ndarray], compute_std: bool = False) -> np.ndarray:
+    def average_matrices(matrices: list[np.ndarray], compute_std: bool = False) -> np.ndarray | tuple[np.ndarray, tuple[float, float]]:
         """
         Compute the average of a list of matrices. If compute_std is True, also compute the standard deviation of the
         rotation matrices. This is done by computing the standard deviation of the angle of the rotation matrices. To
@@ -352,6 +353,7 @@ class PlotHelpers:
     def export_average_matrix_to_latex(
         file_path: str,
         average_matrix: dict[str, tuple[np.ndarray, tuple[float, float]]],
+        angle_name: str,
         reference_system: JointCoordinateSystem,
     ):
         """
@@ -363,16 +365,18 @@ class PlotHelpers:
         file_path (str): The path to the LaTeX file
         average_matrix (dict[str, tuple[np.ndarray, float, float]]): The average reference system including the standard deviations
         of the form {key: (average_matrix, standard_deviations of rotation, standard_deviations of translation)}
+        angle_names (str): The names of the angles
+        reference_system (JointCoordinateSystem): The reference system
         """
 
         all_average_str = []
         for key, average in average_matrix.items():
-            key = key.replace("_", "\\_")
+            key = key.name.replace("_", "\\_")
 
             row = f"{key} & \\begin{{tabular}}{{cccc}}\n"
             row += f"\\\\\n".join("&".join(f"{value:.4f}" for value in row) for row in average[0])
             row += f"\\end{{tabular}} & "
-            row += f"{average[1][0]:.4f} / {average[1][1]:.4f}\\\\\n"
+            row += f"{average[1][0] * 180 / np.pi:.4f} / {average[1][1]:.4f}\\\\\n"
 
             all_average_str.append(row)
 
@@ -388,7 +392,7 @@ class PlotHelpers:
 
 \\begin{{document}}
 
-\\begin{{table}}[h!]
+\\begin{{table}}[ht!]
 \\centering
 \\begin{{tabular}}{{lcc}}
 \\toprule
@@ -397,12 +401,15 @@ class PlotHelpers:
 {all_average_str}
 \\bottomrule
 \\end{{tabular}}
-\\caption{{Average transformation matrix and standard deviation (SD) of the transformation (rotation and translation) from {reference_system.name}.}}
-\\label{{tab:summary{reference_system.name}}}
+\\caption{{Average transformation matrix and standard deviation (SD) of the transformation (rotation and translation) from {reference_system.name} for the {angle_name} matrices.}}
+\\label{{tab:summary{reference_system.name}{angle_name}}}
 \\end{{table}}
 
 \\end{{document}}
         """
+
+        if not os.path.exists(os.path.dirname(file_path)):
+            os.makedirs(os.path.dirname(file_path))
 
         with open(file_path, "w") as file:
             file.write(latex_content)
@@ -411,6 +418,7 @@ class PlotHelpers:
     def export_error_angles_to_latex(
         file_path: str,
         error_angles: dict[str, float],
+        angle_name: str,
         reference_name: str
     ):
         """
@@ -421,11 +429,13 @@ class PlotHelpers:
         Args:
         file_path (str): The path to the LaTeX file
         error_angles (dict[str, float]): The error angles between the reference system and the average reference system
+        angle_names (str): The names of the angles
+        reference_name (str): The name of the reference system
         """
 
         all_error_str = []
         for key, error in error_angles.items():
-            all_error_str.append(f"{key.replace("_", "\\_")} & {error:0.4f} \\\\")
+            all_error_str.append(f"{key.name.replace("_", "\\_")} & {error * 180 / np.pi:0.4f} \\\\")
         all_error_str = f"\n".join(all_error_str)
 
         latex_content = f"""
@@ -438,7 +448,7 @@ class PlotHelpers:
 
 \\begin{{document}}
 
-\\begin{{table}}[h!]
+\\begin{{table}}[ht!]
 \\centering
 \\begin{{tabular}}{{lc}}
 \\toprule
@@ -447,12 +457,15 @@ class PlotHelpers:
 {all_error_str}
 \\bottomrule
 \\end{{tabular}}
-\\caption{{Angle between the means and the {reference_name} reference.}}
-\\label{{tab:angles{reference_name}}}
+\\caption{{Angle between the {angle_name} means to the {reference_name} reference.}}
+\\label{{tab:angles{reference_name}{angle_name}}}
 \\end{{table}}
 
 \\end{{document}}
         """
+
+        if not os.path.exists(os.path.dirname(file_path)):
+            os.makedirs(os.path.dirname(file_path))
 
         with open(file_path, "w") as file:
             file.write(latex_content)

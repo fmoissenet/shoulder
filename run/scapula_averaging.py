@@ -49,17 +49,17 @@ def get_reference_scapula(filepath: str, use_precomputed_values: bool):
 def main():
     #### OPTIONS ####
     reference_for_output = "Statistics"
-    gcs_to_show = JointCoordinateSystem.FIGURE_D
     plot_individual_scapulas = False
     plot_all_scapulas = False
     plot_average_scapulas = True
-    generate_latex = False
+    generate_latex = True
     scapula_folders = [
         "models/scapula/Scapula-BD-EOS/asymptomatiques/",
         "models/scapula/Scapula-BD-EOS/pathologiques/",
         # "models/scapula/Scapula-BD-FHOrtho/Scapula/",
         50,  # Generate 50 random scapulas
     ]
+    latex_save_folder = "latex/"
     #################
 
     # Load the reference scapula
@@ -144,7 +144,7 @@ def main():
                         show_now=False, marker="o", color="b", s=5, alpha=0.1
                     ),
                     data_type=ScapulaDataType.LOCAL,
-                    show_jcs=[JointCoordinateSystem.ISB, gcs_to_show],
+                    show_jcs=[JointCoordinateSystem.ISB],
                     show_now=True,
                     color="r",
                 )
@@ -159,55 +159,90 @@ def main():
     # Compute the average reference system
     reference_scapula = reference_scapulas[reference_for_output]
     average_rts = {}
+    reference_rts = {}
+    average_angles = {}
+    reference_angles = {}
     for key in scapulas.keys():
         average_rts[key] = {}
+        average_angles[key] = {}
+        reference_rts[key] = {}
+        reference_angles[key] = {}
         for type in JointCoordinateSystem:
             average_rts[key][type] = Scapula.compute_average_reference_system_from_reference(
                 scapulas[key], type, reference_system=JointCoordinateSystem.ISB
+            )
+            average_angles[key][type] = MatrixHelpers.angle_between_rotations(
+                reference_scapula.get_joint_coordinates_system(type), average_rts[key][type][0]
+            )
+
+            reference_rts[key][type] = Scapula.compute_average_reference_system_from_reference(
+                [reference_scapulas[key]], type, reference_system=JointCoordinateSystem.ISB
+            )
+            reference_angles[key][type] = MatrixHelpers.angle_between_rotations(
+                reference_scapula.get_joint_coordinates_system(type), reference_rts[key][type][0]
             )
 
     # Export to LaTeX
     if generate_latex:
         for key in average_rts.keys():
             PlotHelpers.export_average_matrix_to_latex(
-                f"average_transformations_{key}.tex", average_rts[key], reference_system=JointCoordinateSystem.ISB
+                f"{latex_save_folder}/average_transformations_{key}.tex",
+                average_rts[key],
+                angle_name=key,
+                reference_system=JointCoordinateSystem.ISB,
+            )
+            PlotHelpers.export_average_matrix_to_latex(
+                f"{latex_save_folder}/reference_transformations_{key}.tex",
+                reference_rts[key],
+                angle_name=key,
+                reference_system=JointCoordinateSystem.ISB,
             )
 
-    # Print the angles between the reference scapula and the average scapula to the console
+    # Export the angles between the reference scapula and the average scapula
     if generate_latex:
-        ref_rt = reference_scapula.get_joint_coordinates_system(gcs_to_show)
-        angles = {
-            key: MatrixHelpers.angle_between_rotations(ref_rt, average_rts[key][gcs_to_show][0])
-            for key in average_rts.keys()
-        }
-        PlotHelpers.export_error_angles_to_latex("angles.tex", angles, reference_name="Statistics")
+        for key in average_rts.keys():
+            PlotHelpers.export_error_angles_to_latex(
+                f"{latex_save_folder}/average_angles_{key}.tex",
+                average_angles[key],
+                angle_name=key,
+                reference_name=reference_for_output,
+            )
+            PlotHelpers.export_error_angles_to_latex(
+                f"{latex_save_folder}/reference_angles_{key}.tex",
+                reference_angles[key],
+                angle_name=key,
+                reference_name=reference_for_output,
+            )
 
     # Plot all the scapula rt
     if plot_all_scapulas:
         for key in scapulas.keys():
-            Scapula.plot_systems_in_reference_scapula(reference_scapula, scapulas[key], gcs_to_show)
+            for gcs_to_show in JointCoordinateSystem:
+                Scapula.plot_systems_in_reference_scapula(reference_scapula, scapulas[key], gcs_to_show)
 
     # Plot the scapulas in the reference scapula
     if plot_average_scapulas:
-        ax = reference_scapula.plot_geometry(show_now=False, marker="o", color="b", s=5, alpha=0.1)
-        origin = reference_scapula.get_joint_coordinates_system(gcs_to_show)[:3, 3]
+        for gcs_to_show in JointCoordinateSystem:
+            ax = reference_scapula.plot_geometry(show_now=False, marker="o", color="b", s=5, alpha=0.1)
+            ax.set_title(f"Scapula averages of {gcs_to_show.name}")
+            origin = reference_scapula.get_joint_coordinates_system(gcs_to_show)[:3, 3]
 
-        linestyles = {"Statistics": "--", "EOS": "-"}
-        for key in average_rts.keys():
-            PlotHelpers.show_axes(
-                reference_scapulas[key].get_joint_coordinates_system(gcs_to_show),
-                ax=ax,
-                translate_to=origin,
-                linestyle=linestyles[key],
-            )
-            PlotHelpers.show_axes(
-                average_rts[key][gcs_to_show][0], ax=ax, linewidth=5, translate_to=origin, linestyle=linestyles[key]
-            )
+            linestyles = {"Statistics": "--", "EOS": "-"}
+            for key in average_rts.keys():
+                PlotHelpers.show_axes(
+                    reference_scapulas[key].get_joint_coordinates_system(gcs_to_show),
+                    ax=ax,
+                    translate_to=origin,
+                    linestyle=linestyles[key],
+                )
+                PlotHelpers.show_axes(
+                    average_rts[key][gcs_to_show][0], ax=ax, linewidth=5, translate_to=origin, linestyle=linestyles[key]
+                )
 
-        ax.set_xlim(-0.8, 1.1)
-        ax.set_ylim(-0.8, 1.1)
-        ax.set_zlim(-0.8, 1.1)
-        PlotHelpers.show()
+            ax.set_xlim(-0.8, 1.1)
+            ax.set_ylim(-0.8, 1.1)
+            ax.set_zlim(-0.8, 1.1)
+            PlotHelpers.show()
 
 
 if __name__ == "__main__":

@@ -565,7 +565,7 @@ class Scapula:
         scapulas: list["Scapula"],
         jcs_type: JointCoordinateSystem,
         reference_system: JointCoordinateSystem = None,
-    ) -> np.ndarray:
+    ) -> tuple[np.ndarray, tuple[float, float]]:
         """
         Compute the average reference system from the reference coordinate system to the desired coordinate system for all the
         scapulas. If None is passed as the reference system, the average reference system will be computed based on the
@@ -577,6 +577,7 @@ class Scapula:
 
         Returns:
         average_matrix: the average reference system
+        std: tuple of floats representing the standard deviation of the rotation and translation matrices respectively
         """
         # Do not care about translation, so set the origin of all the reference frames to the same point
         all_rt = []
