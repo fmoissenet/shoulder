@@ -202,7 +202,7 @@ class MatrixHelpers:
             out[:3, :3] = rotation
         return out
 
-    def average_matrices(matrices: list[np.ndarray], compute_std: bool = False) -> np.ndarray | tuple[np.ndarray, tuple[float, float]]:
+    def average_matrices(matrices: list[np.ndarray]) -> np.ndarray:
         """
         Compute the average of a list of matrices. If compute_std is True, also compute the standard deviation of the
         rotation matrices. This is done by computing the standard deviation of the angle of the rotation matrices. To
@@ -212,11 +212,9 @@ class MatrixHelpers:
 
         Args:
         matrices: list of numpy arrays of shape (4, 4) representing the homogenous matrices to average
-        compute_std: whether to compute the standard deviation of the rotation matrices
 
         Returns:
         average: numpy array of shape (4, 4) representing the average matrix
-        std: tuple of floats representing the standard deviation of the rotation and translation matrices respectively
         """
 
         # Dispatch the input matrices
@@ -236,32 +234,21 @@ class MatrixHelpers:
         out[:3, :3] = average_rotation
         out[:3, 3] = average_translation
 
-        if not compute_std:
-            return out
+        return out
 
-        # If we get here, we need to compute the standard deviation of the homogenous matrices
-        error_angles = []
-        for i in range(rotations.shape[2]):
-            error_angles.append(MatrixHelpers.angle_between_rotations(rotations[:, :, i], average_rotation))
-        rotation_std = np.std(error_angles)
-
-        translation_std = np.std(np.linalg.norm(translations, axis=0))
-
-        return out, (rotation_std, translation_std)
-
-    def angle_between_rotations(rotation1: np.ndarray, rotation2: np.ndarray) -> float:
+    def angle_between_rotations(rotations: list[np.ndarray], rotation2: np.ndarray) -> np.ndarray:
         """
         Compute the angle between two rotations, following the formula:
         angle = arccos((trace(R1.T @ R2) - 1) / 2)
 
         Args:
-        rotation1: numpy array of shape (3, 3) representing the first rotation matrix
+        rotations: list of numpy arrays of shape (3, 3) representing the first rotation matrices
         rotation2: numpy array of shape (3, 3) representing the second rotation matrix
 
         Returns:
-        angle: a float representing the angle between the two rotations
+        angles: numpy array of shape (N,) representing the angles between the rotations to the second rotation matrix
         """
-        return np.arccos((np.trace(rotation1[:3, :3].T @ rotation2[:3, :3]) - 1) / 2)
+        return np.array([np.arccos((np.trace(rt[:3, :3].T @ rotation2[:3, :3]) - 1) / 2) for rt in rotations])
 
     def compute_best_fit_transformation(points1, points2):
         """
@@ -352,9 +339,11 @@ class PlotHelpers:
     @staticmethod
     def export_average_matrix_to_latex(
         file_path: str,
-        average_matrix: dict[str, tuple[np.ndarray, tuple[float, float]]],
+        average_matrix: dict[str, np.ndarray],
+        average_angles: dict[str, np.ndarray] | None,
         angle_name: str,
         reference_system: JointCoordinateSystem,
+        angle_in_degrees: bool = True,
     ):
         """
         Export the average reference system to a LaTeX table. The values are expected to be in the format output by
@@ -363,24 +352,30 @@ class PlotHelpers:
 
         Args:
         file_path (str): The path to the LaTeX file
-        average_matrix (dict[str, tuple[np.ndarray, float, float]]): The average reference system including the standard deviations
-        of the form {key: (average_matrix, standard_deviations of rotation, standard_deviations of translation)}
+        average_matrix (dict[str, np.ndarray]): The average matrices of the form {key: average_matrix}
+        average_angles (dict[str, np.ndarray]): The average angles of the form {key: average_angles}
         angle_names (str): The names of the angles
         reference_system (JointCoordinateSystem): The reference system
+        angle_in_degrees (bool): Whether the angles are in degrees or radians
         """
 
+        ncols = 2 if average_angles is None else 3
         all_average_str = []
-        for key, average in average_matrix.items():
-            key = key.name.replace("_", "\\_")
+        for key in average_matrix.keys():
+            matrix = average_matrix[key]
+            key_string = key.name.replace("_", "\\_")
 
-            row = f"{key} & \\begin{{tabular}}{{cccc}}\n"
-            row += f"\\\\\n".join("&".join(f"{value:.4f}" for value in row) for row in average[0])
-            row += f"\\end{{tabular}} & "
-            row += f"{average[1][0] * 180 / np.pi:.4f} / {average[1][1]:.4f}\\\\\n"
+            row = f"{key_string} & \\begin{{tabular}}{{cccc}}\n"
+            row += f"\\\\\n".join("&".join(f"{value:.4f}" for value in row) for row in matrix)
+            row += f"\\end{{tabular}}"
+            if average_angles is not None:
+                angles = average_angles[key] * (180 / np.pi if angle_in_degrees else 1)
+                row += f" & {np.mean(angles):.4f} ({np.std(angles):.4f})"
+            row += "\\\\\n"
 
             all_average_str.append(row)
 
-        all_average_str = f"\\cmidrule(lr){{1-3}}\n".join(all_average_str)
+        all_average_str = f"\\cmidrule(lr){{1-{ncols}}}\n".join(all_average_str)
 
         latex_content = f"""
 \\documentclass{{article}}
@@ -394,71 +389,15 @@ class PlotHelpers:
 
 \\begin{{table}}[ht!]
 \\centering
-\\begin{{tabular}}{{lcc}}
+\\begin{{tabular}}{{{"lcc" if ncols == 3 else "lc"}}}
 \\toprule
-\\makecell{{\\textbf{{From {reference_system.name}}} \\\\ \\textbf{{to}} }} & \\makecell{{\\textbf{{Average transformation}} \\\\ \\textbf{{matrix}}}} & \\makecell{{\\textbf{{SD}} \\\\ \\textbf{{(Angle/Trans)}}}} \\\\
+\\makecell{{\\textbf{{From {reference_system.name}}} \\\\ \\textbf{{to}} }} & \\makecell{{\\textbf{{Average transformation}} \\\\ \\textbf{{matrix}}}}{" & \\makecell{\\textbf{Angle} \\\\ \\textbf{Mean (SD)}}" if ncols == 3 else ""} \\\\
 \\midrule
 {all_average_str}
 \\bottomrule
 \\end{{tabular}}
-\\caption{{Average transformation matrix and standard deviation (SD) of the transformation (rotation and translation) from {reference_system.name} for the {angle_name} matrices.}}
+\\caption{{Average transformation matrix from {reference_system.name} for the {angle_name} matrices.}}
 \\label{{tab:summary{reference_system.name}{angle_name}}}
-\\end{{table}}
-
-\\end{{document}}
-        """
-
-        if not os.path.exists(os.path.dirname(file_path)):
-            os.makedirs(os.path.dirname(file_path))
-
-        with open(file_path, "w") as file:
-            file.write(latex_content)
-
-    @staticmethod
-    def export_error_angles_to_latex(
-        file_path: str,
-        error_angles: dict[str, float],
-        angle_name: str,
-        reference_name: str
-    ):
-        """
-        Export the average reference system to a LaTeX table. The values are expected to be in the format output by
-        the average_matrices function with the compute_std flag set to True and put in a dictionary with the key being
-        the name of the reference system.
-
-        Args:
-        file_path (str): The path to the LaTeX file
-        error_angles (dict[str, float]): The error angles between the reference system and the average reference system
-        angle_names (str): The names of the angles
-        reference_name (str): The name of the reference system
-        """
-
-        all_error_str = []
-        for key, error in error_angles.items():
-            all_error_str.append(f"{key.name.replace("_", "\\_")} & {error * 180 / np.pi:0.4f} \\\\")
-        all_error_str = f"\n".join(all_error_str)
-
-        latex_content = f"""
-\\documentclass{{article}}
-\\usepackage{{amsmath}}
-\\usepackage{{array}}
-\\usepackage{{booktabs}}
-\\usepackage{{geometry}}
-\\usepackage{{makecell}}
-
-\\begin{{document}}
-
-\\begin{{table}}[ht!]
-\\centering
-\\begin{{tabular}}{{lc}}
-\\toprule
-\\makecell{{\\textbf{{Angle from}} \\\\ \\textbf{{{reference_name} to}} }} & \\textbf{{Angle}} \\\\
-\\midrule
-{all_error_str}
-\\bottomrule
-\\end{{tabular}}
-\\caption{{Angle between the {angle_name} means to the {reference_name} reference.}}
-\\label{{tab:angles{reference_name}{angle_name}}}
 \\end{{table}}
 
 \\end{{document}}

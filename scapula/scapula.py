@@ -561,25 +561,23 @@ class Scapula:
         return picked_points
 
     @staticmethod
-    def compute_average_reference_system_from_reference(
+    def change_frame_of_reference(
         scapulas: list["Scapula"],
         jcs_type: JointCoordinateSystem,
         reference_system: JointCoordinateSystem = None,
-    ) -> tuple[np.ndarray, tuple[float, float]]:
+    ) -> list["Scapula"]:
         """
-        Compute the average reference system from the reference coordinate system to the desired coordinate system for all the
-        scapulas. If None is passed as the reference system, the average reference system will be computed based on the
-        desired coordinate system.
+        Change the frame of reference of the scapulas to the desired coordinate system. If None is passed as the reference
+        system, no transformation will be applied.
 
         Args:
         scapulas: list of scapulas
         jcs_type: the desired joint coordinate system
+        reference_system: the reference coordinate system
 
         Returns:
-        average_matrix: the average reference system
-        std: tuple of floats representing the standard deviation of the rotation and translation matrices respectively
+        scapulas: list of scapulas with the new frame of reference
         """
-        # Do not care about translation, so set the origin of all the reference frames to the same point
         all_rt = []
         for scapula in scapulas:
             if reference_system is None:
@@ -589,8 +587,7 @@ class Scapula:
             rt = scapula.get_joint_coordinates_system(jcs_type)
 
             all_rt.append(MatrixHelpers.transpose_homogenous_matrix(rt_reference) @ rt)
-
-        return MatrixHelpers.average_matrices(all_rt, compute_std=True)
+        return all_rt
 
     @staticmethod
     def plot_systems_in_reference_scapula(

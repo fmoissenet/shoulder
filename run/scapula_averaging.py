@@ -48,97 +48,106 @@ def get_reference_scapula(filepath: str, use_precomputed_values: bool):
 
 def main():
     #### OPTIONS ####
+    skip = ["EOS"]
+    base_folder = "models/scapula/"
     reference_for_output = "Statistics"
-    plot_individual_scapulas = False
+    plot_individual_scapulas = True
     plot_all_scapulas = False
     plot_average_scapulas = True
     generate_latex = True
-    scapula_folders = [
-        "models/scapula/Scapula-BD-EOS/asymptomatiques/",
-        "models/scapula/Scapula-BD-EOS/pathologiques/",
-        # "models/scapula/Scapula-BD-FHOrtho/Scapula/",
-        50,  # Generate 50 random scapulas
-    ]
+    scapulas_to_use = {
+        "EOS": {
+            "to_use": ["A", "P"],
+            "A": {"folder": f"{base_folder}/Scapula-BD-EOS/asymptomatiques/"},
+            "P": {"folder": f"{base_folder}/Scapula-BD-EOS/pathologiques/"},
+            "shared_indices_with_reference": True,
+            "reference": {
+                "path": f"{base_folder}/Scapula-BD-EOS/asymptomatiques/PJ151-M001-scapula.ply",
+                "use_precomputed_values": True,
+            },
+            "is_left": [
+                "PJ151-M021-scapula.ply",
+                "PJ151-M015-scapula.ply",
+                "PJ151-M079-scapula.ply",
+                "PJ151-M047-scapula.ply",
+                "PJ151-M070-scapula.ply",
+                "PJ151-M077-scapula.ply",
+                "PJ151-M046-scapula.ply",
+                "PJ151-M031-scapula.ply",
+                "PJ151-M072-scapula.ply",
+                "PJ151-M068-scapula.ply",
+                "PJ151-M041-scapula.ply",
+                "PJ151-M054-scapula.ply",
+                "PJ151-M058-scapula.ply",
+                "PJ151-M067-scapula.ply",
+                "PJ151-M051-scapula.ply",
+                "PJ151-M040-scapula.ply",
+                "PJ151-M049-scapula.ply",
+                "PJ151-M033-scapula.ply",
+                "PJ151-M059-scapula.ply",
+                "PJ151-M078-scapula.ply",
+                "PJ151-M084-scapula.stl",
+                "PJ151-M090-scapula.stl",
+            ],
+        },
+        "Statistics": {
+            "to_use": ["A", "P"],
+            "A": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 10},
+            "P": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 10},
+            "shared_indices_with_reference": True,
+            "reference": {
+                "path": f"{base_folder}/Modele_stat/data/PJ116_scapula_A_avg.ply",
+                "use_precomputed_values": True,
+            },
+        },
+    }
     latex_save_folder = "latex/"
     #################
 
-    # Load the reference scapula
-    reference_scapulas = {
-        "EOS": get_reference_scapula(
-            filepath="models/scapula/reference/PJ151-M001-scapula.ply",
-            use_precomputed_values=True,
-        ),
-        "Statistics": get_reference_scapula(
-            filepath="models/scapula/reference/PJ116_scapula_A_avg.ply",
-            use_precomputed_values=True,
-        ),
-    }
-
-    left_scapula_files = [
-        "PJ151-M021-scapula.ply",
-        "PJ151-M015-scapula.ply",
-        "PJ151-M079-scapula.ply",
-        "PJ151-M047-scapula.ply",
-        "PJ151-M070-scapula.ply",
-        "PJ151-M077-scapula.ply",
-        "PJ151-M046-scapula.ply",
-        "PJ151-M031-scapula.ply",
-        "PJ151-M072-scapula.ply",
-        "PJ151-M068-scapula.ply",
-        "PJ151-M041-scapula.ply",
-        "PJ151-M054-scapula.ply",
-        "PJ151-M058-scapula.ply",
-        "PJ151-M067-scapula.ply",
-        "PJ151-M051-scapula.ply",
-        "PJ151-M040-scapula.ply",
-        "PJ151-M049-scapula.ply",
-        "PJ151-M033-scapula.ply",
-        "PJ151-M059-scapula.ply",
-        "PJ151-M078-scapula.ply",
-        "PJ151-M084-scapula.stl",
-        "PJ151-M090-scapula.stl",
-    ]
-
+    # TODO Use pointing method if STL are used (not morphing the reference scapula)
+    # TODO Save the values so they can be reused based on their respective file_path
     scapulas: dict[str, list[Scapula]] = {}
-    for scapula_folder in scapula_folders:
-        if isinstance(scapula_folder, str):
-            scapula_geometries = os.listdir(scapula_folder)
+    reference_scapulas = {}
+    for scapula_type in scapulas_to_use.keys():
+        if scapula_type in skip:
+            continue
 
-        elif isinstance(scapula_folder, int):
-            scapula_geometries = Scapula.generator(
-                models_folder="./models/scapula/Modele_stat/data/",
-                number_to_generate=scapula_folder,
-                model="P",
-                reference_scapula=reference_scapulas["Statistics"],
-            )
+        scapulas[scapula_type] = []
+        reference_scapulas[scapula_type] = get_reference_scapula(
+            filepath=scapulas_to_use[scapula_type]["reference"]["path"],
+            use_precomputed_values=scapulas_to_use[scapula_type]["reference"]["use_precomputed_values"],
+        )
 
-        else:
-            raise ValueError(f"Invalid scapula_folder type: {type(scapula_folder)}")
+        for scapula_subtype in scapulas_to_use[scapula_type]["to_use"]:
+            print(f"Processing {scapula_type} - {scapula_subtype}")
+            if scapula_type == "EOS":
+                for name in os.listdir(scapulas_to_use[scapula_type][scapula_subtype]["folder"]):
+                    print(f"\t{name}...")
+                    scapula = Scapula.from_reference_scapula(
+                        geometry=os.path.join(scapulas_to_use[scapula_type][scapula_subtype]["folder"], name),
+                        reference_scapula=reference_scapulas[scapula_type],
+                        shared_indices_with_reference=scapulas_to_use[scapula_type]["shared_indices_with_reference"],
+                        is_left=name in scapulas_to_use[scapula_type]["is_left"],
+                    )
 
-        for index, geometry in enumerate(scapula_geometries):
-            if isinstance(geometry, str):
-                print(f"Processing {geometry}")
+                    scapulas[scapula_type].append(scapula)
 
-                # Load the scapula data
-                scapula_type = "EOS"
-                is_left = geometry in left_scapula_files
-                filepath = os.path.join(scapula_folder, geometry)
-                scapula = Scapula.from_reference_scapula(
-                    geometry=filepath,
+            elif scapula_type == "Statistics":
+                print(f"\tgenerating {scapulas_to_use[scapula_type][scapula_subtype]['generate']} scapulas...")
+                scapula = Scapula.generator(
+                    models_folder=scapulas_to_use[scapula_type][scapula_subtype]["folder"],
+                    number_to_generate=scapulas_to_use[scapula_type][scapula_subtype]["generate"],
+                    model=scapula_subtype,
                     reference_scapula=reference_scapulas[scapula_type],
-                    shared_indices_with_reference="Scapula-BD-EOS" in scapula_folder,
-                    is_left=is_left,
                 )
 
-            elif isinstance(geometry, Scapula):
-                print(f"Generating random scapula {index}")
-                scapula_type = "Statistics"
-                scapula = geometry
+                scapulas[scapula_type].extend(list(scapula))
 
             else:
-                raise ValueError(f"Invalid geometry type: {type(geometry)}")
+                raise ValueError(f"Invalid scapula_folder type: {scapula_type}")
 
-            if plot_individual_scapulas:
+        if plot_individual_scapulas:
+            for scapula in scapulas[scapula_type]:
                 scapula.plot_geometry(
                     ax=reference_scapulas[scapula_type].plot_geometry(
                         show_now=False, marker="o", color="b", s=5, alpha=0.1
@@ -149,38 +158,24 @@ def main():
                     color="r",
                 )
 
-            if scapula_type not in scapulas:
-                scapulas[scapula_type] = []
-
-            scapulas[scapula_type].append(scapula)
-            # TODO Use pointing method if STL are used (not morphing the reference scapula)
-            # TODO Save the values so they can be reused based on their respective file_path
-
     # Compute the average reference system
     reference_scapula = reference_scapulas[reference_for_output]
     average_rts = {}
     reference_rts = {}
-    average_angles = {}
-    reference_angles = {}
+    average_errors = {}
     for key in scapulas.keys():
         average_rts[key] = {}
-        average_angles[key] = {}
+        average_errors[key] = {}
         reference_rts[key] = {}
-        reference_angles[key] = {}
         for type in JointCoordinateSystem:
-            average_rts[key][type] = Scapula.compute_average_reference_system_from_reference(
-                scapulas[key], type, reference_system=JointCoordinateSystem.ISB
-            )
-            average_angles[key][type] = MatrixHelpers.angle_between_rotations(
-                reference_scapula.get_joint_coordinates_system(type), average_rts[key][type][0]
-            )
+            all_rt = Scapula.change_frame_of_reference(scapulas[key], type, reference_system=JointCoordinateSystem.ISB)
+            average_rts[key][type] = MatrixHelpers.average_matrices(all_rt)
+            average_errors[key][type] = MatrixHelpers.angle_between_rotations(all_rt, average_rts[key][type])
 
-            reference_rts[key][type] = Scapula.compute_average_reference_system_from_reference(
-                [reference_scapulas[key]], type, reference_system=JointCoordinateSystem.ISB
+            reference_rt = Scapula.change_frame_of_reference(
+                [reference_scapula], type, reference_system=JointCoordinateSystem.ISB
             )
-            reference_angles[key][type] = MatrixHelpers.angle_between_rotations(
-                reference_scapula.get_joint_coordinates_system(type), reference_rts[key][type][0]
-            )
+            reference_rts[key][type] = MatrixHelpers.average_matrices(reference_rt)
 
     # Export to LaTeX
     if generate_latex:
@@ -188,31 +183,36 @@ def main():
             PlotHelpers.export_average_matrix_to_latex(
                 f"{latex_save_folder}/average_transformations_{key}.tex",
                 average_rts[key],
+                average_errors[key],
                 angle_name=key,
                 reference_system=JointCoordinateSystem.ISB,
             )
             PlotHelpers.export_average_matrix_to_latex(
                 f"{latex_save_folder}/reference_transformations_{key}.tex",
                 reference_rts[key],
+                None,
                 angle_name=key,
                 reference_system=JointCoordinateSystem.ISB,
             )
 
-    # Export the angles between the reference scapula and the average scapula
-    if generate_latex:
-        for key in average_rts.keys():
-            PlotHelpers.export_error_angles_to_latex(
-                f"{latex_save_folder}/average_angles_{key}.tex",
-                average_angles[key],
-                angle_name=key,
-                reference_name=reference_for_output,
-            )
-            PlotHelpers.export_error_angles_to_latex(
-                f"{latex_save_folder}/reference_angles_{key}.tex",
-                reference_angles[key],
-                angle_name=key,
-                reference_name=reference_for_output,
-            )
+    from matplotlib import pyplot as plt
+
+    x_lim = -np.inf
+    for key in average_rts.keys():
+        for type in JointCoordinateSystem:
+            x_lim = max(x_lim, max(average_errors[key][type] * 180 / np.pi))
+    x_lim = int(x_lim) + 1
+
+    for key in average_rts.keys():
+        n_graphs = len(JointCoordinateSystem)
+        _, axs = plt.subplots(n_graphs, 1, tight_layout=True, num=f"Error distribution for {key}")
+        for i in range(n_graphs):
+            type = list(JointCoordinateSystem)[i]
+            axs[i].set_title(f"Error distribution for {key} - {type.name}")
+            axs[i].hist(average_errors[key][type] * 180 / np.pi, bins=range(x_lim))
+            axs[i].set_xlim(0, x_lim)
+        axs[n_graphs - 1].set_xlabel(f"Error (°)")
+        plt.show()
 
     # Plot all the scapula rt
     if plot_all_scapulas:
@@ -236,7 +236,7 @@ def main():
                     linestyle=linestyles[key],
                 )
                 PlotHelpers.show_axes(
-                    average_rts[key][gcs_to_show][0], ax=ax, linewidth=5, translate_to=origin, linestyle=linestyles[key]
+                    average_rts[key][gcs_to_show], ax=ax, linewidth=5, translate_to=origin, linestyle=linestyles[key]
                 )
 
             ax.set_xlim(-0.8, 1.1)
