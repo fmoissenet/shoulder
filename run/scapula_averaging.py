@@ -16,27 +16,21 @@ def get_reference_scapula(filepath: str, use_precomputed_values: bool):
         filename = os.path.basename(filepath)
 
         if filename == "PJ151-M001-scapula.ply":
-            landmarks["IA"] = np.array([-0.42450786, 0.12748057, 5.66849068, 1.0])
-            landmarks["TS"] = np.array([-0.2877714118750495, 0.20422405338645436, 6.176624433088216, 1.0])
-            landmarks["SA"] = np.array([-0.1021418924890583, 0.10170073318175565, 6.2920059467986755, 1.0])
-            landmarks["AA"] = np.array([-0.3332845410297929, -0.3215975587141159, 6.231563695676402, 1.0])
-            landmarks["AC"] = np.array([-0.18210408, -0.30156264, 6.26945651, 1.0])
-            landmarks["AT"] = np.array([-0.1266968011420527, -0.3688454755778767, 6.265601393258909, 1.0])
-            landmarks["CP"] = np.array([-0.017074350751475963, -0.2542251571836168, 6.177195252266086, 1.0])
-            landmarks["GC"] = np.array([-0.18614066393693082, -0.24647324980998891, 6.13033391435741, 1.0])
-            landmarks["IE"] = np.array([-0.24505717, -0.25463561, 6.0552915, 1.0])
-            landmarks["SE"] = np.array([-0.12792344, -0.25661786, 6.19245894, 1.0])
+            landmarks["AA"] = np.array([-78.4296, -77.6471, 1461.666])
+            landmarks["AC"] = np.array([-42.9741, -75.9749, 1478.648])
+            landmarks["AI"] = np.array([-101.0337, 30.4742, 1328.427])
+            landmarks["GC"] = np.array([-44.5196, -58.2721, 1434.744])
+            landmarks["IE"] = np.array([-50.103, -63.4075, 1421.618])
+            landmarks["SE"] = np.array([-33.5696, -61.1017, 1451.804])
+            landmarks["TS"] = np.array([-64.0712, 52.9972, 1447.156])
         elif filename == "PJ116_scapula_A_avg.ply":
-            landmarks["IA"] = np.array([-0.43178419, 0.14275525, 5.68034491, 1.0])
-            landmarks["TS"] = np.array([-0.30306839, 0.18366926, 6.15101467, 1.0])
-            landmarks["SA"] = np.array([-0.13111922, 0.09036657, 6.28140869, 1.0])
-            landmarks["AA"] = np.array([-0.33216135, -0.30433252, 6.25798885, 1.0])
-            landmarks["AC"] = np.array([-0.17491792, -0.30715463, 6.28388734, 1.0])
-            landmarks["AT"] = np.array([-0.13147937, -0.37142136, 6.28457016, 1.0])
-            landmarks["CP"] = np.array([-0.02247475, -0.28800937, 6.14408965, 1.0])
-            landmarks["GC"] = np.array([-0.20194872, -0.24786309, 6.10602707, 1.0])
-            landmarks["IE"] = np.array([-0.26225041, -0.26192896, 6.07919785, 1.0])
-            landmarks["SE"] = np.array([-0.14490825, -0.25775035, 6.19629289, 1.0])
+            landmarks["AA"] = np.array([-77.8502, -71.3278, 1466.713])
+            landmarks["AC"] = np.array([-40.9962, -71.9892, 1472.783])
+            landmarks["AI"] = np.array([-101.1992, 33.4581, 1331.328])
+            landmarks["GC"] = np.array([-47.3316, -58.0928, 1431.097])
+            landmarks["IE"] = np.array([-61.4648, -61.3895, 1424.809])
+            landmarks["SE"] = np.array([-33.9628, -60.4101, 1452.253])
+            landmarks["TS"] = np.array([-71.0315, 43.0474, 1441.641])
         else:
             raise ValueError(f"Precomputed values for {filename} are not available.")
     else:
@@ -107,7 +101,7 @@ def main():
     # TODO Use pointing method if STL are used (not morphing the reference scapula)
     # TODO Save the values so they can be reused based on their respective file_path
     scapulas: dict[str, list[Scapula]] = {}
-    reference_scapulas = {}
+    reference_scapulas: dict[str, Scapula] = {}
     for scapula_type in scapulas_to_use.keys():
         if scapula_type in skip:
             continue
@@ -150,7 +144,7 @@ def main():
             for scapula in scapulas[scapula_type]:
                 scapula.plot_geometry(
                     ax=reference_scapulas[scapula_type].plot_geometry(
-                        show_now=False, marker="o", color="b", s=5, alpha=0.1
+                        show_now=False, marker="o", color="b", s=5, alpha=0.1, landmarks_color="b"
                     ),
                     data_type=ScapulaDataType.LOCAL,
                     show_jcs=[JointCoordinateSystem.ISB],

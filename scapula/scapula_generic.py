@@ -1,5 +1,7 @@
 import numpy as np
 
+from .matrix_helper import MatrixHelpers
+
 
 class ScapulaJcsGeneric:
     def __init__(self, origin: list[str], x: tuple[list[str], list[str]], z: tuple[list[str], list[str]]):
@@ -28,6 +30,7 @@ class ScapulaJcsGeneric:
         Returns:
         jcs: the joint coordinate system as a 4x4 matrix
         """
+
         # Compute the axes and origin
         origin = np.mean([landmarks[name] for name in self.origin], axis=0)[:3]
 
@@ -39,19 +42,4 @@ class ScapulaJcsGeneric:
         z_end = np.mean([landmarks[name] for name in self.z[1]], axis=0)[:3]
         z = z_end - z_start
 
-        y = np.cross(z, x)
-        z = np.cross(x, y)
-
-        # Normalize the axes
-        x /= np.linalg.norm(x)
-        y /= np.linalg.norm(y)
-        z /= np.linalg.norm(z)
-
-        # Create the joint coordinate system
-        jcs = np.eye(4)
-        jcs[:3, 0] = x
-        jcs[:3, 1] = y
-        jcs[:3, 2] = z
-        jcs[:3, 3] = origin
-
-        return jcs
+        return MatrixHelpers.from_vectors(origin=origin, v1=z, v2=x, v1_name="z", keep="v2")

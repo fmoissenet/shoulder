@@ -1,3 +1,4 @@
 from .enums import ScapulaDataType, JointCoordinateSystem
-from .helpers import DataHelpers, MatrixHelpers, PlotHelpers
+from .matrix_helper import DataHelpers, MatrixHelpers
+from .plot_helper import PlotHelpers
 from .scapula import Scapula

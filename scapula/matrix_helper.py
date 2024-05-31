@@ -1,9 +1,4 @@
-import os
-
 import numpy as np
-import matplotlib.pyplot as plt
-
-from .enums import JointCoordinateSystem
 
 
 class DataHelpers:
@@ -29,6 +24,56 @@ class DataHelpers:
 
 
 class MatrixHelpers:
+    @staticmethod
+    def from_vectors(
+        origin: np.ndarray, v1: np.ndarray, v2: np.ndarray, v1_name: str = "x", keep: str = "v1"
+    ) -> np.array:
+        """
+        Compute the homogeneous matrix on the origin, the v1 vector, and the v2 vector, with v3 = v1 ^ v2 and either
+        v1 or v2 recomputed (depending on the keep parameter). The v1 axis gives the name of all the axes, that is
+        if v1_name is "x", then v2 will be "y" and v3 will be "z", if v1_name is "y", then v2 will be "z" and v3 will
+        be "x", and if v1_name is "z", then v2 will be "x" and v3 will be "y".
+
+        Args:
+        origin: numpy array of shape (3,) representing the origin
+        v1: numpy array of shape (3,) representing the first vector
+        v2: numpy array of shape (3,) representing the second vector
+        keep: string representing which vector to keep, either "v1" or "v2"
+
+        Returns:
+        out: 4x4 matrix representing the homogeneous matrix
+        """
+        v3 = np.cross(v1, v2)
+        if keep == "v1":
+            v2 = np.cross(v3, v1)
+        elif keep == "v2":
+            v1 = np.cross(v2, v3)
+        else:
+            raise ValueError("The keep parameter must be either 'v1' or 'v2'.")
+
+        if v1_name == "x":
+            x, y, z = v1, v2, v3
+        elif v1_name == "y":
+            y, z, x = v1, v2, v3
+        elif v1_name == "z":
+            z, x, y = v1, v2, v3
+        else:
+            raise ValueError("The v1_name parameter must be either 'x', 'y', or 'z'.")
+
+        # Normalize the axes
+        x /= np.linalg.norm(x)
+        y /= np.linalg.norm(y)
+        z /= np.linalg.norm(z)
+
+        # Create the joint coordinate system
+        jcs = np.eye(4)
+        jcs[:3, 0] = x
+        jcs[:3, 1] = y
+        jcs[:3, 2] = z
+        jcs[:3, 3] = origin
+
+        return jcs
+
     @staticmethod
     def transpose_homogenous_matrix(homogenous_matrix: np.ndarray) -> np.ndarray:
         """
@@ -306,105 +351,3 @@ class MatrixHelpers:
             indices[i] = np.argmin(tp)
 
         return squared_distances, indices
-
-
-class PlotHelpers:
-    @staticmethod
-    def show_axes(axes: np.ndarray, ax: plt.Axes = None, translate_to: np.ndarray = None, **kwargs):
-        """
-        Show the axes in the plot.
-
-        Args:
-        ax: matplotlib axis
-        axes: 4x4 matrix representing the axes
-        translate_to: numpy array of shape (3,) representing the translation to apply to the axes
-        kwargs: additional arguments to pass to the quiver function
-        """
-
-        origin = axes[:3, 3] if translate_to is None else translate_to
-        x = axes[:3, 0]
-        y = axes[:3, 1]
-        z = axes[:3, 2]
-        ax.quiver(*origin, *x, color="r", **kwargs)
-        ax.quiver(*origin, *y, color="g", **kwargs)
-        ax.quiver(*origin, *z, color="b", **kwargs)
-
-    @staticmethod
-    def show():
-        """
-        Easy way to show the plot.
-        """
-        plt.show()
-
-    @staticmethod
-    def export_average_matrix_to_latex(
-        file_path: str,
-        average_matrix: dict[str, np.ndarray],
-        average_angles: dict[str, np.ndarray] | None,
-        angle_name: str,
-        reference_system: JointCoordinateSystem,
-        angle_in_degrees: bool = True,
-    ):
-        """
-        Export the average reference system to a LaTeX table. The values are expected to be in the format output by
-        the average_matrices function with the compute_std flag set to True and put in a dictionary with the key being
-        the name of the reference system.
-
-        Args:
-        file_path (str): The path to the LaTeX file
-        average_matrix (dict[str, np.ndarray]): The average matrices of the form {key: average_matrix}
-        average_angles (dict[str, np.ndarray]): The average angles of the form {key: average_angles}
-        angle_names (str): The names of the angles
-        reference_system (JointCoordinateSystem): The reference system
-        angle_in_degrees (bool): Whether the angles are in degrees or radians
-        """
-
-        ncols = 2 if average_angles is None else 3
-        all_average_str = []
-        for key in average_matrix.keys():
-            matrix = average_matrix[key]
-            key_string = key.name.replace("_", "\\_")
-
-            row = f"{key_string} & \\begin{{tabular}}{{cccc}}\n"
-            row += f"\\\\\n".join("&".join(f"{value:.4f}" for value in row) for row in matrix)
-            row += f"\\end{{tabular}}"
-            if average_angles is not None:
-                angles = average_angles[key] * (180 / np.pi if angle_in_degrees else 1)
-                row += f" & {np.mean(angles):.4f} ({np.std(angles):.4f})"
-            row += "\\\\\n"
-
-            all_average_str.append(row)
-
-        all_average_str = f"\\cmidrule(lr){{1-{ncols}}}\n".join(all_average_str)
-
-        latex_content = f"""
-\\documentclass{{article}}
-\\usepackage{{amsmath}}
-\\usepackage{{array}}
-\\usepackage{{booktabs}}
-\\usepackage{{geometry}}
-\\usepackage{{makecell}}
-
-\\begin{{document}}
-
-\\begin{{table}}[ht!]
-\\centering
-\\begin{{tabular}}{{{"lcc" if ncols == 3 else "lc"}}}
-\\toprule
-\\makecell{{\\textbf{{From {reference_system.name}}} \\\\ \\textbf{{to}} }} & \\makecell{{\\textbf{{Average transformation}} \\\\ \\textbf{{matrix}}}}{" & \\makecell{\\textbf{Angle} \\\\ \\textbf{Mean (SD)}}" if ncols == 3 else ""} \\\\
-\\midrule
-{all_average_str}
-\\bottomrule
-\\end{{tabular}}
-\\caption{{Average transformation matrix from {reference_system.name} for the {angle_name} matrices.}}
-\\label{{tab:summary{reference_system.name}{angle_name}}}
-\\end{{table}}
-
-\\end{{document}}
-        """
-
-        if not os.path.exists(os.path.dirname(file_path)):
-            os.makedirs(os.path.dirname(file_path))
-
-        with open(file_path, "w") as file:
-            file.write(latex_content)

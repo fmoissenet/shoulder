@@ -9,7 +9,8 @@ from plyfile import PlyData
 from stl import Mesh
 
 from .enums import ScapulaDataType, JointCoordinateSystem
-from .helpers import DataHelpers, PlotHelpers, MatrixHelpers
+from .matrix_helper import DataHelpers, MatrixHelpers
+from .plot_helper import PlotHelpers
 
 
 def _load_scapula_geometry(file_path: str, is_left: bool) -> np.ndarray:
@@ -159,9 +160,7 @@ class Scapula:
             )
         else:
             _, landmark_idx = MatrixHelpers.nearest_neighbor(reference_landmarks[:3, :], local_data[:3, :])
-        landmarks = {
-            key: scapula.normalized_raw_data[:, landmark_idx[i]] for i, key in enumerate(scapula.landmark_names)
-        }
+        landmarks = {key: scapula.raw_data[:, landmark_idx[i]] for i, key in enumerate(scapula.landmark_names)}
 
         # Create and return the scapula object
         scapula._fill_mandatory_fields(predefined_landmarks=landmarks)
@@ -302,7 +301,6 @@ class Scapula:
 
         # Project the scapula in its local reference frame based on ISB
         self._gcs = JointCoordinateSystem.ISB(self._landmarks)
-        # self._gcs = _compute_isb_coordinate_system(self._landmarks)
 
         # Compute the local data
         self.local_data = MatrixHelpers.transpose_homogenous_matrix(self._gcs) @ self.normalized_raw_data
@@ -334,7 +332,7 @@ class Scapula:
         Returns:
         landmark_names: the names of the landmarks
         """
-        return ["IA", "TS", "SA", "AA", "AC", "AT", "CP", "GC", "IE", "SE"]
+        return ["AA", "AC", "AI", "GC", "IE", "SE", "TS"]
 
     @property
     def landmarks_long_names(self):
@@ -345,16 +343,13 @@ class Scapula:
         landmark_names: the long names of the landmarks
         """
         return [
-            "Inferior Angulus",
-            "Trighonum Spinae",
-            "Superior Angle",
             "Acromion Angle",
             "Dorsal of Acromioclavicular joint",
-            "Acromial Tip",
-            "Coracoid Process",
+            "Angulus Inferior",
             "Glenoid Center",
             "Inferior Edge of glenoid",
             "Superior Edge of glenoid",
+            "Trighonum Spinae",
         ]
 
     def get_joint_coordinates_system(
@@ -406,18 +401,36 @@ class Scapula:
         Define the landmarks of the scapula.
 
         Args:
-        predefined_landmarks: dictionary containing the landmarks as keys and the coordinates as values in RAW_NORMALIZED.
+        predefined_landmarks: dictionary containing the landmarks as keys and the coordinates as values in RAW.
         If None, the user will be prompted to select the landmarks on the scapula geometry.
 
         Returns:
-        landmarks: the landmarks of the scapula
+        landmarks: the landmarks of the scapula in RAW_NORMALIZED
         """
         landmarks = predefined_landmarks
 
+        # Convert the indices to coordinates
+        for name in landmarks.keys():
+            if name not in landmarks:
+                continue
+            if isinstance(landmarks[name], int):
+                pass
+            elif isinstance(landmarks[name], np.ndarray):
+                # Find the closest point to the predefined landmark
+                _, idx = MatrixHelpers.nearest_neighbor(landmarks[name][:3, None], self.raw_data[:3, :])
+                landmarks[name] = idx[0]
+            else:
+                raise ValueError(f"The landmark {name} should be indices or a 3x1 or a 4x1 array")
+
+        # Make sure all the points are defined
         if landmarks is None or False in [name in landmarks.keys() for name in self.landmark_names]:
             landmarks = self.plot_pickable_geometry(
                 points_name=self.landmark_names, data_type=ScapulaDataType.RAW_NORMALIZED, initial_guesses=landmarks
             )
+
+        # Convert the landmarks indices to the normalized data
+        for name in landmarks.keys():
+            landmarks[name] = self.normalized_raw_data[:, landmarks[name]]
 
         return landmarks
 
@@ -428,6 +441,7 @@ class Scapula:
         show_jcs: tuple[JointCoordinateSystem] = None,
         show_landmarks: bool = True,
         show_now: bool = False,
+        landmarks_color: str = "g",
         **kwargs,
     ) -> None | plt.Axes:
         """
@@ -471,7 +485,7 @@ class Scapula:
 
         if show_landmarks:
             landmarks = self.landmarks(data_type, as_array=True)
-            ax.scatter(landmarks[0, :], landmarks[1, :], landmarks[2, :], c="g", s=50)
+            ax.scatter(landmarks[0, :], landmarks[1, :], landmarks[2, :], c=landmarks_color, s=50)
 
         if show_now:
             plt.show()
@@ -483,17 +497,18 @@ class Scapula:
         self,
         points_name: list[str],
         data_type: ScapulaDataType = ScapulaDataType.LOCAL,
-        initial_guesses: dict[str, np.array] = None,
-    ) -> dict[str, np.array]:
+        initial_guesses: dict[str, int] = None,
+    ) -> dict[str, int]:
         """
         Plot the scapula geometry and allow the user to pick the points.
 
         Args:
         points_name: the names of the points to pick
         data_type: the desired pose of the scapula data
+        initial_guesses: dictionary containing the initial guesses as keys and the indices as values
 
         Returns:
-        picked_points: dictionary containing the picked points
+        picked_points: dictionary containing the indices of the picked points
         """
         # Prepare the figure
         fig = plt.figure(f"Pick the points")
@@ -511,20 +526,16 @@ class Scapula:
         bnext = Button(axnext, "Next")
 
         def on_pick_point(event):
-            picked_index = int(event.ind[0])
+            picked_index[0] = int(event.ind[0])
 
-            picked_point[0] = data[:, picked_index]
-            scatter._offsets3d = (
-                picked_point[0][np.newaxis, 0],
-                picked_point[0][np.newaxis, 1],
-                picked_point[0][np.newaxis, 2],
-            )
+            picked_point = data[:, picked_index[0]]
+            scatter._offsets3d = (picked_point[np.newaxis, 0], picked_point[np.newaxis, 1], picked_point[np.newaxis, 2])
             fig.canvas.draw_idle()
 
         def on_confirmed_point(event):
             # Save the previous point
             if event is not None:
-                picked_points[points_name[current_point[0]]] = picked_point[0]
+                picked_points[points_name[current_point[0]]] = picked_index[0]
 
             current_point[0] += 1
 
@@ -535,15 +546,12 @@ class Scapula:
             point_name = points_name[current_point[0]]
 
             if point_name in initial_guesses.keys():
-                picked_point[0] = initial_guesses[point_name]
+                picked_index[0] = initial_guesses[point_name]
+                picked_point = data[:, initial_guesses[point_name]]
             else:
-                picked_point[0] = np.array([np.nan, np.nan, np.nan])
-
-            scatter._offsets3d = (
-                picked_point[0][np.newaxis, 0],
-                picked_point[0][np.newaxis, 1],
-                picked_point[0][np.newaxis, 2],
-            )
+                picked_index[0] = None
+                picked_point = np.array([np.nan, np.nan, np.nan])
+            scatter._offsets3d = (picked_point[np.newaxis, 0], picked_point[np.newaxis, 1], picked_point[np.newaxis, 2])
 
             ax.title.set_text(f"Pick the {point_name} then close the window")
             fig.canvas.draw_idle()
@@ -551,7 +559,7 @@ class Scapula:
         # Setup the connection
         picked_points = {}
         current_point = [-1]
-        picked_point = [np.array([np.nan, np.nan, np.nan])]
+        picked_index = [None]
 
         on_confirmed_point(None)
         fig.canvas.mpl_connect("pick_event", on_pick_point)
