@@ -3,8 +3,11 @@ import numpy as np
 from .matrix_helper import MatrixHelpers
 
 
+type AxisGeneric = tuple[list[str], list[str]]
+
+
 class ScapulaJcsGeneric:
-    def __init__(self, origin: list[str], x: tuple[list[str], list[str]], z: tuple[list[str], list[str]]):
+    def __init__(self, origin: list[str], axis: AxisGeneric, plane: tuple[AxisGeneric, AxisGeneric]):
         """
         Generic definition of a scapula joint coordinate system. The coordinate system is defined by the origin, the x-axis
         and the z-axis. The y-axis is computed as the cross product of the z-axis and the x-axis (assuming a right-handed
@@ -20,8 +23,8 @@ class ScapulaJcsGeneric:
         start point, and the mean of all the elements of the second list will be taken as the end point.
         """
         self.origin = origin
-        self.x = x
-        self.z = z
+        self.axis = axis
+        self.plane = plane
 
     def compute_coordinate_system(self, landmarks: dict[str, np.array]) -> np.array:
         """
@@ -34,12 +37,18 @@ class ScapulaJcsGeneric:
         # Compute the axes and origin
         origin = np.mean([landmarks[name] for name in self.origin], axis=0)[:3]
 
-        x_start = np.mean([landmarks[name] for name in self.x[0]], axis=0)[:3]
-        x_end = np.mean([landmarks[name] for name in self.x[1]], axis=0)[:3]
-        x = x_end - x_start
+        axis_start = np.mean([landmarks[name] for name in self.axis[0]], axis=0)[:3]
+        axis_end = np.mean([landmarks[name] for name in self.axis[1]], axis=0)[:3]
+        axis = axis_end - axis_start
 
-        z_start = np.mean([landmarks[name] for name in self.z[0]], axis=0)[:3]
-        z_end = np.mean([landmarks[name] for name in self.z[1]], axis=0)[:3]
-        z = z_end - z_start
+        plane_first_axis_start = np.mean([landmarks[name] for name in self.plane[0][0]], axis=0)[:3]
+        plane_first_axis_end = np.mean([landmarks[name] for name in self.plane[0][1]], axis=0)[:3]
+        plane_first_axis = plane_first_axis_end - plane_first_axis_start
 
-        return MatrixHelpers.from_vectors(origin=origin, v1=z, v2=x, v1_name="z", keep="v2")
+        plane_second_axis_start = np.mean([landmarks[name] for name in self.plane[1][0]], axis=0)[:3]
+        plane_second_axis_end = np.mean([landmarks[name] for name in self.plane[1][1]], axis=0)[:3]
+        plane_second_axis = plane_second_axis_end - plane_second_axis_start
+
+        plane_normal = np.cross(plane_first_axis, plane_second_axis)
+
+        return MatrixHelpers.from_vectors(origin=origin, v1=axis, v2=plane_normal, v1_name="x", keep="v1")
