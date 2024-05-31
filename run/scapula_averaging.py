@@ -45,10 +45,10 @@ def main():
     skip = ["EOS"]
     base_folder = "models/scapula/"
     reference_for_output = "Statistics"
-    plot_individual_scapulas = True
+    plot_individual_scapulas = False
     plot_all_scapulas = False
     plot_average_scapulas = True
-    generate_latex = True
+    generate_latex = False
     scapulas_to_use = {
         "EOS": {
             "to_use": ["A", "P"],

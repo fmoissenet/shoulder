@@ -22,11 +22,14 @@ class JointCoordinateSystem(Enum):
     # DUMMY = ScapulaJcsGeneric(origin=["GC"], x=(["IA"], ["AA"]), z=(["TS"], ["SA"]))
     ISB = ScapulaJcsGeneric(origin=["AA"], axis=(["TS"], ["AA"]), plane=((["AI"], ["TS"]), (["AI"], ["AA"])))
     SCS2 = ScapulaJcsGeneric(origin=["AA"], axis=(["TS"], ["AA"]), plane=((["AI"], ["TS"]), (["AI"], ["AA"])))
-    # FIGURE_B1 = ScapulaJcsGeneric(origin=["AA"], x=(["TS"], ["AC"]), z=(["AI"], ["AC"]))
-    # FIGURE_B2 = ScapulaJcsGeneric(origin=["GC"], x=(["TS"], ["GC"]), z=(["AI"], ["GC"]))
-    # FIGURE_C1 = ScapulaJcsGeneric(origin=["TS"], x=(["TS"], ["AC"]), z=(["AI"], ["TS"]))
-    # FIGURE_C2 = ScapulaJcsGeneric(origin=["AC"], x=(["TS"], ["AC"]), z=(["AI"], ["AC"]))
-    # FIGURE_D = ScapulaJcsGeneric(origin=["GC"], x=(["TS"], ["AA"]), z=(["IE"], ["SE"]))
+    SCS3 = ScapulaJcsGeneric(origin=["AC"], axis=(["TS"], ["AC"]), plane=((["AI"], ["TS"]), (["AI"], ["AC"])))
+    SCS4 = ScapulaJcsGeneric(origin=["GC"], axis=(["TS"], ["GC"]), plane=((["AI"], ["TS"]), (["AI"], ["GC"])))
+    SCS5 = ScapulaJcsGeneric(origin=["TS"], axis=(["TS"], ["AC"]), plane=((["AI"], ["TS"]), (["AI"], ["AC"])))
+    SCS6 = ScapulaJcsGeneric(origin=["AC"], axis=(["TS"], ["AC"]), plane=((["AI"], ["TS"]), (["AI"], ["AC"])))
+    # SCS7 = # TODO
+    # SCS8 = # TODO
+    # SCS9 = # TODO
+    # SCS10 = # TODO
 
     def __call__(self, landmarks: dict[str, np.array]) -> np.array:
         return self.value.compute_coordinate_system(landmarks)
