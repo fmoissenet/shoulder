@@ -2,9 +2,10 @@ import math
 import os
 from typing import Generator
 
+from circle_fitting_3d import Circle3D
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Button
+from matplotlib.widgets import Button, TextBox
 from plyfile import PlyData
 from stl import Mesh
 
@@ -72,6 +73,7 @@ class Scapula:
 
         # The following fields need to be filled by the public constructor
         self._landmarks: dict[str, np.ndarray] = None  # The landmarks of the scapula in RAW_NORMALIZED
+        self._glenoid_indices = None  # The indices of the glenoid contours
         self._gcs: np.ndarray = None  # The coordinate system based on ISB that gets data from RAW_NORMALIZED to LOCAL
         self.local_data: np.ndarray = None  # The scapula data in LOCAL
 
@@ -161,6 +163,12 @@ class Scapula:
         else:
             _, landmark_idx = MatrixHelpers.nearest_neighbor(reference_landmarks[:3, :], local_data[:3, :])
         landmarks = {key: scapula.raw_data[:, landmark_idx[i]] for i, key in enumerate(scapula.landmark_names)}
+
+        if not shared_indices_with_reference:
+            raise NotImplementedError(
+                "The shared_indices_with_reference=False is not implemented yet for Glenoid contours"
+            )
+        landmarks["GC_CONTOURS"] = [val for val in scapula.raw_data[:, reference_scapula._glenoid_indices].T]
 
         # Create and return the scapula object
         scapula._fill_mandatory_fields(predefined_landmarks=landmarks)
@@ -297,7 +305,7 @@ class Scapula:
         Returns:
         None
         """
-        self._landmarks = self._define_landmarks(predefined_landmarks)
+        self._landmarks = self._define_landmarks(predefined_landmarks=predefined_landmarks)
 
         # Project the scapula in its local reference frame based on ISB
         self._gcs = JointCoordinateSystem.ISB(self._landmarks)
@@ -325,6 +333,26 @@ class Scapula:
             raise ValueError("Unsupported data type")
 
     @property
+    def user_defined_landmark_names(self):
+        """
+        Get the names of the landmarks that the user must define.
+
+        Returns:
+        landmark_names: the names of the landmarks
+        """
+        return ["AA", "AC", "AI", "IE", "SE", "GC_CONTOURS", "TS"]
+
+    @property
+    def user_defined_landmark_has_muliple_points(self) -> list[bool]:
+        """
+        Get the names of the landmarks that the user must define.
+
+        Returns:
+        A list of booleans indicating if the landmark has multiple points
+        """
+        return [False, False, False, False, False, True, False]
+
+    @property
     def landmark_names(self):
         """
         Get the names of the landmarks.
@@ -332,7 +360,7 @@ class Scapula:
         Returns:
         landmark_names: the names of the landmarks
         """
-        return ["AA", "AC", "AI", "GC", "IE", "SE", "TS"]
+        return ["AA", "AC", "AI", "GC_MID", "GC_CONTOUR", "GC_CONTOUR_NORMAL", "IE", "SE", "TS"]
 
     @property
     def landmarks_long_names(self):
@@ -346,7 +374,9 @@ class Scapula:
             "Acromion Angle",
             "Dorsal of Acromioclavicular joint",
             "Angulus Inferior",
-            "Glenoid Center",
+            "Glenoid Center (from IE and SE)",
+            "Glenoid Center (from contour)",
+            "Normal of Glenoid plane",
             "Inferior Edge of glenoid",
             "Superior Edge of glenoid",
             "Trighonum Spinae",
@@ -387,12 +417,12 @@ class Scapula:
             out = self._landmarks
         elif data_type == ScapulaDataType.LOCAL:
             gcs_T = MatrixHelpers.transpose_homogenous_matrix(self._gcs)
-            out = {key: gcs_T @ val for key, val in self._landmarks.items()}
+            out = {key: gcs_T @ self._landmarks[key] for key in self.landmark_names}
         else:
             raise ValueError("Unsupported data type")
 
         if as_array:
-            return np.array([val for val in out.values()]).T
+            return np.squeeze([val for val in out.values()]).T
         else:
             return out
 
@@ -407,32 +437,49 @@ class Scapula:
         Returns:
         landmarks: the landmarks of the scapula in RAW_NORMALIZED
         """
-        landmarks = predefined_landmarks
 
         # Convert the indices to coordinates
-        for name in landmarks.keys():
-            if name not in landmarks:
-                continue
-            if isinstance(landmarks[name], int):
-                pass
-            elif isinstance(landmarks[name], np.ndarray):
-                # Find the closest point to the predefined landmark
-                _, idx = MatrixHelpers.nearest_neighbor(landmarks[name][:3, None], self.raw_data[:3, :])
-                landmarks[name] = idx[0]
+        def to_index(val) -> int | list[int]:
+            if isinstance(val, int):
+                return [val]
+            elif isinstance(val, np.ndarray):
+                _, idx = MatrixHelpers.nearest_neighbor(val[:3, None], self.raw_data[:3, :])
+                return [idx[0]]
+            elif isinstance(val, list):
+                out = []
+                for v in [to_index(v) for v in val]:
+                    out.extend(v)
+                return out
             else:
-                raise ValueError(f"The landmark {name} should be indices or a 3x1 or a 4x1 array")
+                raise ValueError("The landmark should be indices or a 3x1 or a 4x1 array")
+
+        landmarks = {key: to_index(val) for key, val in predefined_landmarks.items()}
 
         # Make sure all the points are defined
-        if landmarks is None or False in [name in landmarks.keys() for name in self.landmark_names]:
+        if landmarks is None or False in [name in landmarks.keys() for name in self.user_defined_landmark_names]:
             landmarks = self.plot_pickable_geometry(
-                points_name=self.landmark_names, data_type=ScapulaDataType.RAW_NORMALIZED, initial_guesses=landmarks
+                points_name=self.user_defined_landmark_names,
+                has_multiple_points=self.user_defined_landmark_has_muliple_points,
+                data_type=ScapulaDataType.RAW_NORMALIZED,
+                initial_guesses=landmarks,
             )
 
         # Convert the landmarks indices to the normalized data
-        for name in landmarks.keys():
-            landmarks[name] = self.normalized_raw_data[:, landmarks[name]]
+        out = {}
+        for name in self.landmark_names:
+            if "GC_MID" == name:
+                out["GC_MID"] = np.mean(self.normalized_raw_data[:, [landmarks["IE"], landmarks["SE"]]], axis=1)
+            elif "GC_CONTOUR" == name:
+                self._glenoid_indices = landmarks["GC_CONTOURS"]
+                circle = Circle3D(self.normalized_raw_data[:, self._glenoid_indices][:3, :].T)
+                out["GC_CONTOUR"] = np.concatenate((circle.center, [1]))[:, None]
+                out["GC_CONTOUR_NORMAL"] = np.concatenate((circle.normal, [1]))[:, None]
+            elif "GC_CONTOUR_NORMAL" == name:
+                pass
+            else:
+                out[name] = self.normalized_raw_data[:, landmarks[name]]
 
-        return landmarks
+        return out
 
     def plot_geometry(
         self,
@@ -441,6 +488,7 @@ class Scapula:
         show_jcs: tuple[JointCoordinateSystem] = None,
         show_landmarks: bool = True,
         show_now: bool = False,
+        show_glenoid: bool = True,
         landmarks_color: str = "g",
         **kwargs,
     ) -> None | plt.Axes:
@@ -487,6 +535,10 @@ class Scapula:
             landmarks = self.landmarks(data_type, as_array=True)
             ax.scatter(landmarks[0, :], landmarks[1, :], landmarks[2, :], c=landmarks_color, s=50)
 
+        if show_glenoid:
+            circle_3d = Circle3D(self.get_data(data_type)[:3, self._glenoid_indices].T)
+            circle_3d.plot(ax)
+
         if show_now:
             plt.show()
             return None
@@ -496,6 +548,7 @@ class Scapula:
     def plot_pickable_geometry(
         self,
         points_name: list[str],
+        has_multiple_points: list[bool],
         data_type: ScapulaDataType = ScapulaDataType.LOCAL,
         initial_guesses: dict[str, int] = None,
     ) -> dict[str, int]:
@@ -504,6 +557,7 @@ class Scapula:
 
         Args:
         points_name: the names of the points to pick
+        has_multiple_points: whether the point has multiple points
         data_type: the desired pose of the scapula data
         initial_guesses: dictionary containing the initial guesses as keys and the indices as values
 
@@ -525,17 +579,37 @@ class Scapula:
         axnext = plt.axes([0.81, 0.05, 0.1, 0.075])
         bnext = Button(axnext, "Next")
 
-        def on_pick_point(event):
-            picked_index[0] = int(event.ind[0])
+        # Add the textbox to get the number of multiple points
+        axbox = plt.axes([0.1, 0.05, 0.1, 0.075])
+        text_box = TextBox(axbox, "Number of points", initial="1")
+        text_box.label.set_position((0.5, 1.12))
+        text_box.label.set_horizontalalignment("center")
 
-            picked_point = data[:, picked_index[0]]
-            scatter._offsets3d = (picked_point[np.newaxis, 0], picked_point[np.newaxis, 1], picked_point[np.newaxis, 2])
+        def on_pick_point(event):
+            picked_index[-1] = int(event.ind[0])
+
+            picked_point = data[:, picked_index]
+            scatter._offsets3d = (picked_point[0, :], picked_point[1, :], picked_point[2, :])
             fig.canvas.draw_idle()
 
         def on_confirmed_point(event):
             # Save the previous point
             if event is not None:
-                picked_points[points_name[current_point[0]]] = picked_index[0]
+                point_name = points_name[current_point[0]]
+                if point_name not in picked_points:
+                    picked_points[point_name] = []
+                if picked_index[-1] is not None:
+                    picked_points[point_name].append(picked_index[-1])
+
+                text_box.set_active(False)
+                text_box.label.set_color("black" if has_multiple_points[current_point[0]] else "gray")
+                if len(picked_points[point_name]) < int(text_box.text):
+                    if not picked_index[0]:
+                        return
+                    picked_point = data[:, picked_index]
+                    picked_index.append([])
+                    scatter._offsets3d = (picked_point[0, :], picked_point[1, :], picked_point[2, :])
+                    return
 
             current_point[0] += 1
 
@@ -551,7 +625,20 @@ class Scapula:
             else:
                 picked_index[0] = None
                 picked_point = np.array([np.nan, np.nan, np.nan])
-            scatter._offsets3d = (picked_point[np.newaxis, 0], picked_point[np.newaxis, 1], picked_point[np.newaxis, 2])
+            if len(picked_point.shape) == 1:
+                picked_point = picked_point[:, None]
+            scatter._offsets3d = (picked_point[0, :], picked_point[1, :], picked_point[2, :])
+
+            if (
+                point_name in initial_guesses
+                and initial_guesses[point_name] is not None
+                and isinstance(initial_guesses[point_name], list)
+            ):
+                text_box.set_val(str(len(initial_guesses[point_name])))
+            else:
+                text_box.set_val("1")
+            text_box.set_active(has_multiple_points[current_point[0]])
+            text_box.label.set_color("black" if has_multiple_points[current_point[0]] else "gray")
 
             ax.title.set_text(f"Pick the {point_name} then close the window")
             fig.canvas.draw_idle()
@@ -564,6 +651,10 @@ class Scapula:
         on_confirmed_point(None)
         fig.canvas.mpl_connect("pick_event", on_pick_point)
         bnext.on_clicked(on_confirmed_point)
+        text_box.on_submit(lambda text: text_box.set_val(text))
+        text_box.set_active(has_multiple_points[current_point[0]])
+        text_box.label.set_color("black" if has_multiple_points[current_point[0]] else "gray")
+
         plt.show()
 
         return picked_points

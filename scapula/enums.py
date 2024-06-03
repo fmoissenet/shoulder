@@ -17,19 +17,72 @@ class JointCoordinateSystem(Enum):
     the x-axis and the y-plane.
     """
 
-    # O_AA__X_TS_AA__Y_IA_TS_AA = ScapulaJcsGeneric(origin=["AA"], x=(["TS"], ["AA"]), z=(["IA"], ["TS"]))
-    # O_GC__X_TS_AA__Y_IA_TS_AA = ScapulaJcsGeneric(origin=["GC"], x=(["TS"], ["AA"]), z=(["IA"], ["TS"]))
-    # DUMMY = ScapulaJcsGeneric(origin=["GC"], x=(["IA"], ["AA"]), z=(["TS"], ["SA"]))
-    ISB = ScapulaJcsGeneric(origin=["AA"], axis=(["TS"], ["AA"]), plane=((["AI"], ["TS"]), (["AI"], ["AA"])))
-    SCS2 = ScapulaJcsGeneric(origin=["AA"], axis=(["TS"], ["AA"]), plane=((["AI"], ["TS"]), (["AI"], ["AA"])))
-    SCS3 = ScapulaJcsGeneric(origin=["AC"], axis=(["TS"], ["AC"]), plane=((["AI"], ["TS"]), (["AI"], ["AC"])))
-    SCS4 = ScapulaJcsGeneric(origin=["GC"], axis=(["TS"], ["GC"]), plane=((["AI"], ["TS"]), (["AI"], ["GC"])))
-    SCS5 = ScapulaJcsGeneric(origin=["TS"], axis=(["TS"], ["AC"]), plane=((["AI"], ["TS"]), (["AI"], ["AC"])))
-    SCS6 = ScapulaJcsGeneric(origin=["AC"], axis=(["TS"], ["AC"]), plane=((["AI"], ["TS"]), (["AI"], ["AC"])))
-    # SCS7 = # TODO
+    ISB = ScapulaJcsGeneric(
+        origin=["AA"],
+        axis=(["TS"], ["AA"]),
+        axis_name="x",
+        plane=((["AI"], ["TS"]), (["AI"], ["AA"])),
+        plane_name="y",
+        keep="axis",
+    )
+    # SCS2 = ScapulaJcsGeneric(
+    #     origin=["AA"],
+    #     axis=(["TS"], ["AA"]),
+    #     axis_name="x",
+    #     plane=((["AI"], ["TS"]), (["AI"], ["AA"])),
+    #     plane_name="y",
+    #     keep="axis",
+    # )
+    # SCS3 = ScapulaJcsGeneric(
+    #     origin=["AC"],
+    #     axis=(["TS"], ["AC"]),
+    #     axis_name="x",
+    #     plane=((["AI"], ["TS"]), (["AI"], ["AC"])),
+    #     plane_name="y",
+    #     keep="axis",
+    # )
+    # SCS4 = ScapulaJcsGeneric(
+    #     origin=["GC_CONTOUR"],
+    #     axis=(["TS"], ["GC_CONTOUR"]),
+    #     axis_name="x",
+    #     plane=((["AI"], ["TS"]), (["AI"], ["GC_CONTOUR"])),
+    #     plane_name="y",
+    #     keep="axis",
+    # )
+    # SCS5 = ScapulaJcsGeneric(
+    #     origin=["TS"],
+    #     axis=(["TS"], ["AC"]),
+    #     axis_name="x",
+    #     plane=((["AI"], ["TS"]), (["AI"], ["AC"])),
+    #     plane_name="y",
+    #     keep="axis",
+    # )
+    # SCS6 = ScapulaJcsGeneric(
+    #     origin=["AC"],
+    #     axis=(["TS"], ["AC"]),
+    #     axis_name="x",
+    #     plane=((["AI"], ["TS"]), (["AI"], ["AC"])),
+    #     plane_name="y",
+    #     keep="axis",
+    # )
+    # SCS7 = ScapulaJcsGeneric(
+    #     origin=["GC"],
+    #     axis=(["TS"], ["AC"]),
+    #     axis_name="x",
+    #     plane=((["AI"], ["TS"]), (["AI"], ["AC"])),
+    #     plane_name="y",
+    #     keep="axis",
+    # )
     # SCS8 = # TODO
     # SCS9 = # TODO
-    # SCS10 = # TODO
+    SCS10 = ScapulaJcsGeneric(
+        origin=["GC_CONTOUR"],
+        axis=(["IE"], ["SE"]),
+        axis_name="z",
+        plane="GC_CONTOUR_NORMAL",
+        plane_name="x",
+        keep="plane",
+    )
 
     def __call__(self, landmarks: dict[str, np.array]) -> np.array:
         return self.value.compute_coordinate_system(landmarks)

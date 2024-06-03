@@ -26,7 +26,7 @@ class DataHelpers:
 class MatrixHelpers:
     @staticmethod
     def from_vectors(
-        origin: np.ndarray, v1: np.ndarray, v2: np.ndarray, v1_name: str = "x", keep: str = "v1"
+        origin: np.ndarray, v1: np.ndarray, v2: np.ndarray, v1_name: str, v2_name: str, keep: str = "v1"
     ) -> np.array:
         """
         Compute the homogeneous matrix on the origin, the v1 vector, and the v2 vector, with v3 = v1 ^ v2 and either
@@ -51,12 +51,18 @@ class MatrixHelpers:
         else:
             raise ValueError("The keep parameter must be either 'v1' or 'v2'.")
 
-        if v1_name == "x":
+        if v1_name == "x" and v2_name == "y":
             x, y, z = v1, v2, v3
-        elif v1_name == "y":
+        elif v1_name == "x" and v2_name == "z":
+            x, z, y = v1, v2, v3
+        elif v1_name == "y" and v2_name == "z":
             y, z, x = v1, v2, v3
-        elif v1_name == "z":
+        elif v1_name == "y" and v2_name == "x":
+            y, x, z = v1, v2, v3
+        elif v1_name == "z" and v2_name == "x":
             z, x, y = v1, v2, v3
+        elif v1_name == "z" and v2_name == "y":
+            z, y, x = v1, v2, v3
         else:
             raise ValueError("The v1_name parameter must be either 'x', 'y', or 'z'.")
 
