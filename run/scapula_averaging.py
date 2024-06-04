@@ -84,9 +84,12 @@ def get_reference_scapula(filepath: str, use_precomputed_values: bool):
             landmarks["AC"] = np.array([-40.9962, -71.9892, 1472.783])
             landmarks["AI"] = np.array([-101.1992, 33.4581, 1331.328])
             landmarks["GC_CONTOURS"] = [
-                np.array([-58.6847, -60.7364, 1441.6949]),
-                np.array([-33.3042, -56.9530, 1429.8879]),
-                np.array([-46.7018, -61.4934, 1417.2280]),
+                np.array([-49.7961, -62.2796, 1417.6770]),
+                np.array([-33.6853, -57.2951, 1427.9179]),
+                np.array([-60.2887, -59.6469, 1440.5839]),
+                np.array([-48.8372, -60.1961, 1451.6960]),
+                np.array([-62.8106, -60.2237, 1429.8430]),
+                np.array([-33.2097, -57.3340, 1441.9169]),
             ]
             landmarks["IE"] = np.array([-61.4648, -61.3895, 1424.809])
             landmarks["SE"] = np.array([-33.9628, -60.4101, 1452.253])

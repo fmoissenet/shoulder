@@ -53,15 +53,18 @@ class ScapulaJcsGeneric:
             origin = origin[:, 0]
         origin = origin[:3]
 
-        axis_start = np.mean([landmarks[name] for name in self.axis[0]], axis=0)
-        axis_end = np.mean([landmarks[name] for name in self.axis[1]], axis=0)
-        axis = axis_end - axis_start
-        if len(axis.shape) == 2:
-            axis = axis[:, 0]
-        axis = axis[:3]
+        if self.axis == "GC_ELLIPSE_MAJOR":
+            axis = landmarks["GC_ELLIPSE_MAJOR"][:3, 0] - landmarks["GC_ELLIPSE_CENTER"][:3, 0]
+        else:
+            axis_start = np.mean([landmarks[name] for name in self.axis[0]], axis=0)
+            axis_end = np.mean([landmarks[name] for name in self.axis[1]], axis=0)
+            axis = axis_end - axis_start
+            if len(axis.shape) == 2:
+                axis = axis[:, 0]
+            axis = axis[:3]
 
         if self.plane == "GC_CONTOUR_NORMAL":
-            plane_normal = landmarks["GC_CONTOUR_NORMAL"][:3, 0] - landmarks["GC_CENTER_CIRCLE"][:3, 0]
+            plane_normal = landmarks["GC_CONTOUR_NORMAL"][:3, 0] - landmarks["GC_CIRCLE_CENTER"][:3, 0]
         else:
             plane_first_axis_start = np.mean([landmarks[name] for name in self.plane[0][0]], axis=0)
             plane_first_axis_end = np.mean([landmarks[name] for name in self.plane[0][1]], axis=0)

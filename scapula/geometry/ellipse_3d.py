@@ -12,6 +12,7 @@ from typing import Union
 
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
+from scipy.optimize import minimize
 from skspatial.objects import Circle
 from skspatial.objects import Plane
 from skspatial.objects import Point
@@ -20,11 +21,12 @@ from skspatial.objects import Vector
 
 
 class Ellipse(Circle):
-    def __init__(self, center: Point, major_radius: float, minor_radius: float) -> None:
+    def __init__(self, center: Point, major_radius: float, minor_radius: float, theta: float) -> None:
 
         self.center = center
         self.major_radius = major_radius
         self.minor_radius = minor_radius
+        self.theta = theta
 
         super(Ellipse, self).__init__(center, radius=np.nan)
 
@@ -58,41 +60,32 @@ class Ellipse(Circle):
         -------
         Ellipse
 
-        References
-        ----------
-        https://stackoverflow.com/questions/47873759/how-to-fit-a-2d-ellipse-to-given-points
         """
-        points = Points(points)
 
-        if points.dimension != 2:
-            raise ValueError("The points must be 2D.")
+        def ellipse_function(params, x, y):
+            xc, yc, a, b, theta = params
+            cos_theta = np.cos(theta)
+            sin_theta = np.sin(theta)
+            x_new = (x - xc) * cos_theta + (y - yc) * sin_theta
+            y_new = -(x - xc) * sin_theta + (y - yc) * cos_theta
+            return (x_new / a) ** 2 + (y_new / b) ** 2 - 1
 
-        if points.shape[0] < 3:
-            raise ValueError("There must be at least 3 points.")
+        x = points[:, 0]
+        y = points[:, 1]
+        x_m = np.mean(x)
+        y_m = np.mean(y)
+        a_guess = (np.max(x) - np.min(x)) / 2
+        b_guess = (np.max(y) - np.min(y)) / 2
+        theta_guess = 0
+        initial_guess = [x_m, y_m, a_guess, b_guess, theta_guess]
 
-        if points.affine_rank() != 2:
-            raise ValueError("The points must not be collinear.")
+        def cost_function(params):
+            return np.sum(ellipse_function(params, x, y) ** 2)
 
-        X = points[:, [0]] * 10  # x-coordinates of the points
-        Y = points[:, [1]] * 2  # y-coordinates of the points
-        A = np.hstack([X**2, X * Y, Y**2, X, Y])
-        b = np.ones_like(X)
-        x = np.linalg.lstsq(A, b, rcond=None)[0].squeeze()
+        result = minimize(cost_function, initial_guess, method="Nelder-Mead")
 
-        # From standard form, get the major and minor radii and the center of the ellipse
-        center = np.linalg.solve([[2 * x[0], x[1]], [x[1], 2 * x[2]]], [-x[3], -x[4]])
-
-        from matplotlib import pyplot as plt
-
-        # Plot the least squares ellipse
-        plt.plot(points[:, 0], points[:, 1], "ro")
-        t = np.linspace(0, 2 * np.pi, 100)
-        x_coord = center[0] + x[0] * np.cos(t) + x[1] * np.sin(t)
-        y_coord = center[1] + x[1] * np.cos(t) + x[2] * np.sin(t)
-        plt.scatter(x_coord, y_coord)
-        plt.show()
-
-        return cls(center, major_radius=np.nan, minor_radius=np.nan)
+        xc, yc, a, b, theta = result.x
+        return cls(Point([xc, yc]), major_radius=a, minor_radius=b, theta=theta)
 
 
 class Ellipse3D:
@@ -203,6 +196,18 @@ class Ellipse3D:
         return self._best_fit_ellipse_2d.major_radius
 
     @property
+    def theta(self) -> float:
+        """
+        Rotation angle in radians.
+
+        Returns
+        -------
+        float
+
+        """
+        return self._best_fit_ellipse_2d.theta
+
+    @property
     def normal(self) -> Vector:
         """
         Plane normal
@@ -221,7 +226,7 @@ class Ellipse3D:
         Parameters
         ----------
         t : Union[np.ndarray, Sequence]
-            .. math:: 0 \le t \le 2\pi
+            .. math:: 0 \\le t \\le 2\\pi
 
         Returns
         -------

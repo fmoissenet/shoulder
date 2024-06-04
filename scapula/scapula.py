@@ -365,9 +365,11 @@ class Scapula:
             "AC",
             "AI",
             "GC_MID",
-            "GC_CENTER_CIRCLE",
-            "GC_CENTER_ELLIPSE",
             "GC_CONTOUR_NORMAL",
+            "GC_CIRCLE_CENTER",
+            "GC_ELLIPSE_CENTER",
+            "GC_ELLIPSE_MAJOR",
+            "GC_ELLIPSE_MINOR",
             "IE",
             "SE",
             "TS",
@@ -386,9 +388,11 @@ class Scapula:
             "Dorsal of Acromioclavicular joint",
             "Angulus Inferior",
             "Glenoid Center (from IE and SE)",
+            "Normal of Glenoid plane",
             "Glenoid Center (from circle fitting)",
             "Glenoid Center (from ellipse fitting)",
-            "Normal of Glenoid plane",
+            "Glenoid Ellipse Major Axis",
+            "Glenoid Ellipse Minor Axis",
             "Inferior Edge of glenoid",
             "Superior Edge of glenoid",
             "Trighonum Spinae",
@@ -481,18 +485,23 @@ class Scapula:
         for name in self.landmark_names:
             if "GC_MID" == name:
                 out["GC_MID"] = np.mean(self.normalized_raw_data[:, [landmarks["IE"], landmarks["SE"]]], axis=1)
-            elif "GC_CENTER_CIRCLE" == name:
+            elif "GC_CIRCLE_CENTER" == name:
                 self._glenoid_contour_indices = landmarks["GC_CONTOURS"]
                 circle = Circle3D(self.normalized_raw_data[:, self._glenoid_contour_indices][:3, :].T)
-                out["GC_CENTER_CIRCLE"] = np.concatenate((circle.center, [1]))[:, None]
+                out["GC_CIRCLE_CENTER"] = np.concatenate((circle.center, [1]))[:, None]
                 out["GC_CONTOUR_NORMAL"] = np.concatenate((circle.center + circle.normal, [1]))[:, None]
             elif "GC_CONTOUR_NORMAL" == name:
-                # Already computed when computing GC_CENTER_CIRCLE
+                # Already computed when computing GC_CIRCLE_CENTER
                 pass
-            elif "GC_CENTER_ELLIPSE" == name:
+            elif "GC_ELLIPSE_CENTER" == name:
                 self._glenoid_contour_indices = landmarks["GC_CONTOURS"]
-                circle = Ellipse3D(self.normalized_raw_data[:, self._glenoid_contour_indices][:3, :].T)
-                out["GC_CENTER_ELLIPSE"] = np.concatenate((circle.center, [1]))[:, None]
+                ellipse = Ellipse3D(self.normalized_raw_data[:, self._glenoid_contour_indices][:3, :].T)
+                out["GC_ELLIPSE_CENTER"] = np.concatenate((ellipse.center, [1]))[:, None]
+                out["GC_ELLIPSE_MAJOR"] = np.concatenate((ellipse.center + ellipse.major_radius, [1]))[:, None]
+                out["GC_ELLIPSE_MINOR"] = np.concatenate((ellipse.center + ellipse.minor_radius, [1]))[:, None]
+            elif "GC_ELLIPSE_MAJOR" == name or "GC_ELLIPSE_MINOR" == name:
+                # Already computed when computing GC_ELLIPSE_CENTER
+                pass
             else:
                 out[name] = self.normalized_raw_data[:, landmarks[name]]
 
@@ -542,8 +551,6 @@ class Scapula:
         ax.set_ylabel("Y")
         ax.set_zlabel("Z")
 
-        ax.set_box_aspect([1, 1, 1])
-
         if show_jcs is not None:
             for jcs in show_jcs:
                 PlotHelpers.show_axes(jcs(self.landmarks(data_type)), ax=ax)
@@ -563,11 +570,8 @@ class Scapula:
             points = ellipse_3d.equation(t)
             ax.plot(points[:, 0], points[:, 1], points[:, 2])
 
-        ax.set_box_aspect((1, 1, 1))
-        scaling = np.array([getattr(ax, "get_{}lim".format(dim))() for dim in "xyz"])
-        minbound = min(scaling[:, 0])
-        maxbound = max(scaling[:, 1])
-        ax.auto_scale_xyz(*[[minbound, maxbound]] * 3)
+        ax.set_box_aspect([1, 1, 1])
+        plt.axis("equal")  # Set equal aspect ratio
 
         if show_now:
             plt.show()

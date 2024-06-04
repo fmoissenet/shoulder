@@ -18,5 +18,6 @@ dependencies:
 - ipopt
 - plyfile
 - numpy-stl
+- scikit-spatial
 - pip:
   - myosuite
