@@ -20,4 +20,3 @@ dependencies:
 - numpy-stl
 - pip:
   - myosuite
-  - circle-fitting-3d

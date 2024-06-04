@@ -106,7 +106,7 @@ def main():
     base_folder = "models/scapula/"
     reference_for_output = "Statistics"
     plot_individual_scapulas = False
-    plot_reference_scapula = False
+    plot_reference_scapula = True
     plot_all_scapulas = False
     plot_average_scapulas = True
     generate_latex = False
@@ -147,8 +147,8 @@ def main():
         },
         "Statistics": {
             "to_use": ["A", "P"],
-            "A": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 10},
-            "P": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 10},
+            "A": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 1},
+            "P": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 1},
             "shared_indices_with_reference": True,
             "reference": {
                 "path": f"{base_folder}/Modele_stat/data/PJ116_scapula_A_avg.ply",

@@ -2,11 +2,11 @@ import math
 import os
 from typing import Generator
 
-from circle_fitting_3d import Circle3D
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button, TextBox
 from plyfile import PlyData
+from scapula.geometry import Circle3D, Ellipse3D
 from stl import Mesh
 
 from .enums import ScapulaDataType, JointCoordinateSystem
@@ -360,7 +360,18 @@ class Scapula:
         Returns:
         landmark_names: the names of the landmarks
         """
-        return ["AA", "AC", "AI", "GC_MID", "GC_CONTOUR_CENTER", "GC_CONTOUR_NORMAL", "IE", "SE", "TS"]
+        return [
+            "AA",
+            "AC",
+            "AI",
+            "GC_MID",
+            "GC_CENTER_CIRCLE",
+            "GC_CENTER_ELLIPSE",
+            "GC_CONTOUR_NORMAL",
+            "IE",
+            "SE",
+            "TS",
+        ]
 
     @property
     def landmarks_long_names(self):
@@ -375,7 +386,8 @@ class Scapula:
             "Dorsal of Acromioclavicular joint",
             "Angulus Inferior",
             "Glenoid Center (from IE and SE)",
-            "Glenoid Center (from contour)",
+            "Glenoid Center (from circle fitting)",
+            "Glenoid Center (from ellipse fitting)",
             "Normal of Glenoid plane",
             "Inferior Edge of glenoid",
             "Superior Edge of glenoid",
@@ -469,13 +481,18 @@ class Scapula:
         for name in self.landmark_names:
             if "GC_MID" == name:
                 out["GC_MID"] = np.mean(self.normalized_raw_data[:, [landmarks["IE"], landmarks["SE"]]], axis=1)
-            elif "GC_CONTOUR_CENTER" == name:
+            elif "GC_CENTER_CIRCLE" == name:
                 self._glenoid_contour_indices = landmarks["GC_CONTOURS"]
                 circle = Circle3D(self.normalized_raw_data[:, self._glenoid_contour_indices][:3, :].T)
-                out["GC_CONTOUR_CENTER"] = np.concatenate((circle.center, [1]))[:, None]
+                out["GC_CENTER_CIRCLE"] = np.concatenate((circle.center, [1]))[:, None]
                 out["GC_CONTOUR_NORMAL"] = np.concatenate((circle.center + circle.normal, [1]))[:, None]
             elif "GC_CONTOUR_NORMAL" == name:
+                # Already computed when computing GC_CENTER_CIRCLE
                 pass
+            elif "GC_CENTER_ELLIPSE" == name:
+                self._glenoid_contour_indices = landmarks["GC_CONTOURS"]
+                circle = Ellipse3D(self.normalized_raw_data[:, self._glenoid_contour_indices][:3, :].T)
+                out["GC_CENTER_ELLIPSE"] = np.concatenate((circle.center, [1]))[:, None]
             else:
                 out[name] = self.normalized_raw_data[:, landmarks[name]]
 
@@ -539,6 +556,11 @@ class Scapula:
             circle_3d = Circle3D(self.get_data(data_type)[:3, self._glenoid_contour_indices].T)
             t = np.linspace(0.0, 2 * np.pi, 1000)
             points = circle_3d.equation(t)
+            ax.plot(points[:, 0], points[:, 1], points[:, 2])
+
+            ellipse_3d = Ellipse3D(self.get_data(data_type)[:3, self._glenoid_contour_indices].T)
+            t = np.linspace(0.0, 2 * np.pi, 1000)
+            points = ellipse_3d.equation(t)
             ax.plot(points[:, 0], points[:, 1], points[:, 2])
 
         ax.set_box_aspect((1, 1, 1))

@@ -1,8 +1,6 @@
-from circle_fitting_3d import Circle3D
 import numpy as np
 
 from .matrix_helper import MatrixHelpers
-
 
 type AxisGeneric = tuple[list[str], list[str]]
 
@@ -63,7 +61,7 @@ class ScapulaJcsGeneric:
         axis = axis[:3]
 
         if self.plane == "GC_CONTOUR_NORMAL":
-            plane_normal = landmarks["GC_CONTOUR_NORMAL"][:3, 0] - landmarks["GC_CONTOUR_CENTER"][:3, 0]
+            plane_normal = landmarks["GC_CONTOUR_NORMAL"][:3, 0] - landmarks["GC_CENTER_CIRCLE"][:3, 0]
         else:
             plane_first_axis_start = np.mean([landmarks[name] for name in self.plane[0][0]], axis=0)
             plane_first_axis_end = np.mean([landmarks[name] for name in self.plane[0][1]], axis=0)
