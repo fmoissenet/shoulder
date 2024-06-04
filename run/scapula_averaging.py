@@ -106,6 +106,7 @@ def main():
     base_folder = "models/scapula/"
     reference_for_output = "Statistics"
     plot_individual_scapulas = False
+    plot_reference_scapula = False
     plot_all_scapulas = False
     plot_average_scapulas = True
     generate_latex = False
@@ -171,6 +172,8 @@ def main():
             filepath=scapulas_to_use[scapula_type]["reference"]["path"],
             use_precomputed_values=scapulas_to_use[scapula_type]["reference"]["use_precomputed_values"],
         )
+        if plot_reference_scapula:
+            reference_scapulas[scapula_type].plot_geometry(show_now=True, show_glenoid=True, show_landmarks=True)
 
         for scapula_subtype in scapulas_to_use[scapula_type]["to_use"]:
             print(f"Processing {scapula_type} - {scapula_subtype}")

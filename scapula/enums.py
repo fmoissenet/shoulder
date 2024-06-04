@@ -42,10 +42,10 @@ class JointCoordinateSystem(Enum):
     #     keep="axis",
     # )
     # SCS4 = ScapulaJcsGeneric(
-    #     origin=["GC_CONTOUR"],
-    #     axis=(["TS"], ["GC_CONTOUR"]),
+    #     origin=["GC_CONTOUR_CENTER"],
+    #     axis=(["TS"], ["GC_CONTOUR_CENTER"]),
     #     axis_name="x",
-    #     plane=((["AI"], ["TS"]), (["AI"], ["GC_CONTOUR"])),
+    #     plane=((["AI"], ["TS"]), (["AI"], ["GC_CONTOUR_CENTER"])),
     #     plane_name="y",
     #     keep="axis",
     # )
@@ -76,7 +76,7 @@ class JointCoordinateSystem(Enum):
     # SCS8 = # TODO
     # SCS9 = # TODO
     SCS10 = ScapulaJcsGeneric(
-        origin=["GC_CONTOUR"],
+        origin=["GC_CONTOUR_CENTER"],
         axis=(["IE"], ["SE"]),
         axis_name="z",
         plane="GC_CONTOUR_NORMAL",

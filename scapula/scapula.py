@@ -73,7 +73,7 @@ class Scapula:
 
         # The following fields need to be filled by the public constructor
         self._landmarks: dict[str, np.ndarray] = None  # The landmarks of the scapula in RAW_NORMALIZED
-        self._glenoid_indices = None  # The indices of the glenoid contours
+        self._glenoid_contour_indices = None  # The indices of the glenoid contours
         self._gcs: np.ndarray = None  # The coordinate system based on ISB that gets data from RAW_NORMALIZED to LOCAL
         self.local_data: np.ndarray = None  # The scapula data in LOCAL
 
@@ -168,7 +168,7 @@ class Scapula:
             raise NotImplementedError(
                 "The shared_indices_with_reference=False is not implemented yet for Glenoid contours"
             )
-        landmarks["GC_CONTOURS"] = [val for val in scapula.raw_data[:, reference_scapula._glenoid_indices].T]
+        landmarks["GC_CONTOURS"] = [val for val in scapula.raw_data[:, reference_scapula._glenoid_contour_indices].T]
 
         # Create and return the scapula object
         scapula._fill_mandatory_fields(predefined_landmarks=landmarks)
@@ -360,7 +360,7 @@ class Scapula:
         Returns:
         landmark_names: the names of the landmarks
         """
-        return ["AA", "AC", "AI", "GC_MID", "GC_CONTOUR", "GC_CONTOUR_NORMAL", "IE", "SE", "TS"]
+        return ["AA", "AC", "AI", "GC_MID", "GC_CONTOUR_CENTER", "GC_CONTOUR_NORMAL", "IE", "SE", "TS"]
 
     @property
     def landmarks_long_names(self):
@@ -469,11 +469,11 @@ class Scapula:
         for name in self.landmark_names:
             if "GC_MID" == name:
                 out["GC_MID"] = np.mean(self.normalized_raw_data[:, [landmarks["IE"], landmarks["SE"]]], axis=1)
-            elif "GC_CONTOUR" == name:
-                self._glenoid_indices = landmarks["GC_CONTOURS"]
-                circle = Circle3D(self.normalized_raw_data[:, self._glenoid_indices][:3, :].T)
-                out["GC_CONTOUR"] = np.concatenate((circle.center, [1]))[:, None]
-                out["GC_CONTOUR_NORMAL"] = np.concatenate((circle.normal, [1]))[:, None]
+            elif "GC_CONTOUR_CENTER" == name:
+                self._glenoid_contour_indices = landmarks["GC_CONTOURS"]
+                circle = Circle3D(self.normalized_raw_data[:, self._glenoid_contour_indices][:3, :].T)
+                out["GC_CONTOUR_CENTER"] = np.concatenate((circle.center, [1]))[:, None]
+                out["GC_CONTOUR_NORMAL"] = np.concatenate((circle.center + circle.normal, [1]))[:, None]
             elif "GC_CONTOUR_NORMAL" == name:
                 pass
             else:
@@ -486,9 +486,9 @@ class Scapula:
         ax: plt.Axes = None,
         data_type: ScapulaDataType = ScapulaDataType.LOCAL,
         show_jcs: tuple[JointCoordinateSystem] = None,
-        show_landmarks: bool = True,
+        show_landmarks: bool = False,
         show_now: bool = False,
-        show_glenoid: bool = True,
+        show_glenoid: bool = False,
         landmarks_color: str = "g",
         **kwargs,
     ) -> None | plt.Axes:
@@ -536,8 +536,16 @@ class Scapula:
             ax.scatter(landmarks[0, :], landmarks[1, :], landmarks[2, :], c=landmarks_color, s=50)
 
         if show_glenoid:
-            circle_3d = Circle3D(self.get_data(data_type)[:3, self._glenoid_indices].T)
-            circle_3d.plot(ax)
+            circle_3d = Circle3D(self.get_data(data_type)[:3, self._glenoid_contour_indices].T)
+            t = np.linspace(0.0, 2 * np.pi, 1000)
+            points = circle_3d.equation(t)
+            ax.plot(points[:, 0], points[:, 1], points[:, 2])
+
+        ax.set_box_aspect((1, 1, 1))
+        scaling = np.array([getattr(ax, "get_{}lim".format(dim))() for dim in "xyz"])
+        minbound = min(scaling[:, 0])
+        maxbound = max(scaling[:, 1])
+        ax.auto_scale_xyz(*[[minbound, maxbound]] * 3)
 
         if show_now:
             plt.show()

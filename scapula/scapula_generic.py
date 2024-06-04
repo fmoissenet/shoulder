@@ -63,9 +63,7 @@ class ScapulaJcsGeneric:
         axis = axis[:3]
 
         if self.plane == "GC_CONTOUR_NORMAL":
-            circle = Circle3D(self.normalized_raw_data[:, self._glenoid_indices][:3, :].T)
-            out["GC_CONTOUR_NORMAL"] = np.concatenate((circle.normal, [1]))[:, None]
-            plane_normal = -landmarks["GC_CONTOUR_NORMAL"][:3, 0]
+            plane_normal = landmarks["GC_CONTOUR_NORMAL"][:3, 0] - landmarks["GC_CONTOUR_CENTER"][:3, 0]
         else:
             plane_first_axis_start = np.mean([landmarks[name] for name in self.plane[0][0]], axis=0)
             plane_first_axis_end = np.mean([landmarks[name] for name in self.plane[0][1]], axis=0)
