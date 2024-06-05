@@ -516,6 +516,7 @@ class Scapula:
         show_now: bool = False,
         show_glenoid: bool = False,
         landmarks_color: str = "g",
+        figure_title: str = "Scapula",
         **kwargs,
     ) -> None | plt.Axes:
         """
@@ -533,7 +534,7 @@ class Scapula:
         None if show_now is True, the axis otherwise
         """
         if ax is None:
-            fig = plt.figure(f"Scapula")
+            fig = plt.figure(figure_title)
             ax = fig.add_subplot(111, projection="3d")
 
         data = self.get_data(data_type)
@@ -752,3 +753,37 @@ class Scapula:
             PlotHelpers.show_axes(rt, ax=ax)
         PlotHelpers.show_axes(axes=average_matrix, ax=ax, linewidth=10)
         PlotHelpers.show()
+
+    @staticmethod
+    def plot_error_histogram(
+        average_rts: dict[str, dict[JointCoordinateSystem, np.array]],
+        average_errors: dict[str, dict[JointCoordinateSystem, np.array]],
+        angle_in_degrees: bool = True,
+    ) -> None:
+        """
+        Plot the error distribution for each scapula and each joint coordinate system.
+
+        Args:
+        average_rts: dictionary containing the average RTs for each scapula
+        average_errors: dictionary containing the average errors for each scapula
+        angle_in_degrees: whether the angle is in degrees or radians
+        """
+
+        factor = 180 / np.pi if angle_in_degrees else 1
+
+        x_lim = -np.inf
+        for key in average_rts.keys():
+            for type in JointCoordinateSystem:
+                x_lim = max(x_lim, max(average_errors[key][type] * factor))
+        x_lim = int(x_lim) + 1
+
+        for key in average_rts.keys():
+            n_graphs = len(JointCoordinateSystem)
+            _, axs = plt.subplots(n_graphs, 1, tight_layout=True, num=f"Error distribution for {key}")
+            for i in range(n_graphs):
+                type = list(JointCoordinateSystem)[i]
+                axs[i].set_title(f"Error distribution for {key} - {type.name}")
+                axs[i].hist(average_errors[key][type] * factor, bins=range(x_lim))
+                axs[i].set_xlim(0, x_lim)
+            axs[n_graphs - 1].set_xlabel(f"Error (°)")
+            plt.show()

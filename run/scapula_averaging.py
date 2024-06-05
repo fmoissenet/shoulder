@@ -109,10 +109,12 @@ def main():
     base_folder = "models/scapula/"
     reference_for_output = "Statistics"
     plot_individual_scapulas = False
-    plot_reference_scapula = True
+    plot_reference_scapula = False
     plot_all_scapulas = False
     plot_average_scapulas = True
-    generate_latex = False
+    plot_histograms = True
+    generate_latex = True
+    angle_in_degrees = True
     scapulas_to_use = {
         "EOS": {
             "to_use": ["A", "P"],
@@ -150,8 +152,8 @@ def main():
         },
         "Statistics": {
             "to_use": ["A", "P"],
-            "A": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 1},
-            "P": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 1},
+            "A": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 5},
+            "P": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 5},
             "shared_indices_with_reference": True,
             "reference": {
                 "path": f"{base_folder}/Modele_stat/data/PJ116_scapula_A_avg.ply",
@@ -220,9 +222,9 @@ def main():
 
     # Compute the average reference system
     reference_scapula = reference_scapulas[reference_for_output]
-    average_rts = {}
-    reference_rts = {}
-    average_errors = {}
+    average_rts: dict[str, dict[JointCoordinateSystem, np.array]] = {}
+    reference_rts: dict[str, dict[JointCoordinateSystem, np.array]] = {}
+    average_errors: dict[str, dict[JointCoordinateSystem, np.array]] = {}
     for key in scapulas.keys():
         average_rts[key] = {}
         average_errors[key] = {}
@@ -246,6 +248,7 @@ def main():
                 average_errors[key],
                 angle_name=key,
                 reference_system=JointCoordinateSystem.ISB,
+                angle_in_degrees=angle_in_degrees,
             )
             PlotHelpers.export_average_matrix_to_latex(
                 f"{latex_save_folder}/reference_transformations_{key}.tex",
@@ -253,26 +256,13 @@ def main():
                 None,
                 angle_name=key,
                 reference_system=JointCoordinateSystem.ISB,
+                angle_in_degrees=angle_in_degrees,
             )
 
-    from matplotlib import pyplot as plt
-
-    x_lim = -np.inf
-    for key in average_rts.keys():
-        for type in JointCoordinateSystem:
-            x_lim = max(x_lim, max(average_errors[key][type] * 180 / np.pi))
-    x_lim = int(x_lim) + 1
-
-    for key in average_rts.keys():
-        n_graphs = len(JointCoordinateSystem)
-        _, axs = plt.subplots(n_graphs, 1, tight_layout=True, num=f"Error distribution for {key}")
-        for i in range(n_graphs):
-            type = list(JointCoordinateSystem)[i]
-            axs[i].set_title(f"Error distribution for {key} - {type.name}")
-            axs[i].hist(average_errors[key][type] * 180 / np.pi, bins=range(x_lim))
-            axs[i].set_xlim(0, x_lim)
-        axs[n_graphs - 1].set_xlabel(f"Error (°)")
-        plt.show()
+    if plot_histograms:
+        Scapula.plot_error_histogram(
+            average_rts=average_rts, average_errors=average_errors, angle_in_degrees=angle_in_degrees
+        )
 
     # Plot all the scapula rt
     if plot_all_scapulas:
@@ -283,8 +273,17 @@ def main():
     # Plot the scapulas in the reference scapula
     if plot_average_scapulas:
         for gcs_to_show in JointCoordinateSystem:
-            ax = reference_scapula.plot_geometry(show_now=False, marker="o", color="b", s=5, alpha=0.1)
-            ax.set_title(f"Scapula averages of {gcs_to_show.name}")
+            title = f"Scapula averages of {gcs_to_show.name}"
+            ax = reference_scapula.plot_geometry(
+                show_now=False,
+                marker="o",
+                color="b",
+                s=5,
+                alpha=0.1,
+                figure_title=title,
+                show_landmarks=True,
+            )
+            ax.set_title(title)
             origin = reference_scapula.get_joint_coordinates_system(gcs_to_show)[:3, 3]
 
             linestyles = {"Statistics": "--", "EOS": "-"}
@@ -302,7 +301,7 @@ def main():
             ax.set_xlim(-0.8, 1.1)
             ax.set_ylim(-0.8, 1.1)
             ax.set_zlim(-0.8, 1.1)
-            PlotHelpers.show()
+        PlotHelpers.show()
 
 
 if __name__ == "__main__":
