@@ -72,6 +72,7 @@ class Scapula:
         self.normalized_raw_data = DataHelpers.rough_normalize(self.raw_data)
 
         # The following fields need to be filled by the public constructor
+        self._scale_factor: float = None  # The scale factor to normalize the scapula (based on the AI and AA landmarks)
         self._landmarks: dict[str, np.ndarray] = None  # The landmarks of the scapula in RAW_NORMALIZED
         self._glenoid_contour_indices = None  # The indices of the glenoid contours
         self._gcs: np.ndarray = None  # The coordinate system based on ISB that gets data from RAW_NORMALIZED to LOCAL
@@ -305,6 +306,22 @@ class Scapula:
         Returns:
         None
         """
+
+        # Find the position of the landmarks in the roughly defined normalized data
+        landmarks = self._define_landmarks(predefined_landmarks=predefined_landmarks)
+
+        # Recompute the normalized data based on the landmarks, but now with a standardized scale factor
+        landmarks_array = np.squeeze([val for val in landmarks.values()]).T
+        _, idx = MatrixHelpers.nearest_neighbor(landmarks_array[:3, :], self.normalized_raw_data[:3, :])
+        ai_index = idx[self.landmark_names.index("AI")]
+        aa_index = idx[self.landmark_names.index("AA")]
+        min_point = self.raw_data[:, ai_index]
+        max_point = self.raw_data[:, aa_index]
+        self._scale_factor = np.linalg.norm(max_point - min_point)
+        self.normalized_raw_data = np.ones((4, self.raw_data.shape[1]))
+        self.normalized_raw_data[:3, :] = self.raw_data[:3, :] / self._scale_factor
+
+        # Refine the landmarks based on the properly normalized data
         self._landmarks = self._define_landmarks(predefined_landmarks=predefined_landmarks)
 
         # Project the scapula in its local reference frame based on ISB
