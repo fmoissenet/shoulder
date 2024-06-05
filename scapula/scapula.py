@@ -422,7 +422,7 @@ class Scapula:
             "Glenoid Ellipse Minor Axis",
             "Inferior Edge of glenoid",
             "Superior Edge of glenoid",
-            "Trighonum Spinae",
+            "Trigonum Spinae",
         ]
 
     def get_joint_coordinates_system(
