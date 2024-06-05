@@ -20,9 +20,9 @@ class JointCoordinateSystem(Enum):
     ISB = ScapulaJcsGeneric(
         origin=["AA"],
         axis=(["TS"], ["AA"]),
-        axis_name="x",
+        axis_name="z",
         plane=((["AI"], ["TS"]), (["AI"], ["AA"])),
-        plane_name="y",
+        plane_name="x",
         keep="axis",
     )
     SCS2 = ScapulaJcsGeneric(
@@ -36,17 +36,17 @@ class JointCoordinateSystem(Enum):
     SCS3 = ScapulaJcsGeneric(
         origin=["AC"],
         axis=(["TS"], ["AC"]),
-        axis_name="x",
+        axis_name="z",
         plane=((["AI"], ["TS"]), (["AI"], ["AC"])),
-        plane_name="y",
+        plane_name="x",
         keep="axis",
     )
     SCS4 = ScapulaJcsGeneric(
         origin=["GC_CIRCLE_CENTER"],
         axis=(["TS"], ["GC_CIRCLE_CENTER"]),
-        axis_name="x",
+        axis_name="z",
         plane=((["AI"], ["TS"]), (["AI"], ["GC_CIRCLE_CENTER"])),
-        plane_name="y",
+        plane_name="x",
         keep="axis",
     )
     SCS5 = ScapulaJcsGeneric(
@@ -68,9 +68,9 @@ class JointCoordinateSystem(Enum):
     SCS7 = ScapulaJcsGeneric(
         origin=["GC_MID"],
         axis=(["IE"], ["SE"]),
-        axis_name="z",
+        axis_name="y",
         plane="GC_CONTOUR_NORMAL",
-        plane_name="x",
+        plane_name="z",
         keep="axis",
     )
     SCS8 = ScapulaJcsGeneric(
@@ -78,12 +78,12 @@ class JointCoordinateSystem(Enum):
         axis="GC_ELLIPSE_MAJOR",
         axis_name="z",
         plane="GC_CONTOUR_NORMAL",
-        plane_name="x",
+        plane_name="y",
         keep="axis",
     )
     SCS9 = ScapulaJcsGeneric(
         origin=["GC_MID"],
-        axis="GC_ELLIPSE_MAJOR",
+        axis=[["IE"], ["SE"]],
         axis_name="z",
         plane="GC_CONTOUR_NORMAL",
         plane_name="x",
@@ -92,9 +92,9 @@ class JointCoordinateSystem(Enum):
     SCS10 = ScapulaJcsGeneric(
         origin=["GC_ELLIPSE_CENTER"],
         axis=(["IE"], ["SE"]),
-        axis_name="z",
+        axis_name="x",
         plane="GC_CONTOUR_NORMAL",
-        plane_name="x",
+        plane_name="z",
         keep="axis",
     )
 
