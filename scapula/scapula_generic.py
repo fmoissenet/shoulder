@@ -41,7 +41,7 @@ class ScapulaJcsGeneric:
 
     def compute_coordinate_system(self, landmarks: dict[str, np.array]) -> np.array:
         """
-        Compute the joint coordinate system based on the origin, the x-axis, and the z-axis.
+        Compute the joint coordinate system based on the landmarks.
 
         Returns:
         jcs: the joint coordinate system as a 4x4 matrix

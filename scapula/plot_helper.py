@@ -39,6 +39,7 @@ class PlotHelpers:
         file_path: str,
         average_matrix: dict[str, np.ndarray],
         average_angles: dict[str, np.ndarray] | None,
+        average_translations: dict[str, np.ndarray] | None,
         angle_name: str,
         reference_system: JointCoordinateSystem,
         angle_in_degrees: bool = True,
@@ -52,12 +53,18 @@ class PlotHelpers:
         file_path (str): The path to the LaTeX file
         average_matrix (dict[str, np.ndarray]): The average matrices of the form {key: average_matrix}
         average_angles (dict[str, np.ndarray]): The average angles of the form {key: average_angles}
+        average_translations (dict[str, np.ndarray]): The average translations of the form {key: average_translations}
         angle_names (str): The names of the angles
         reference_system (JointCoordinateSystem): The reference system
         angle_in_degrees (bool): Whether the angles are in degrees or radians
         """
 
-        ncols = 2 if average_angles is None else 3
+        ncols = 2
+        if average_angles is not None:
+            ncols += 1
+        if average_translations is not None:
+            ncols += 1
+
         all_average_str = []
         for key in average_matrix.keys():
             matrix = average_matrix[key]
@@ -69,12 +76,21 @@ class PlotHelpers:
             if average_angles is not None:
                 angles = average_angles[key] * (180 / np.pi if angle_in_degrees else 1)
                 row += f" & {np.mean(angles):.4f} ({np.std(angles):.4f})"
+            if average_translations is not None:
+                translations = average_translations[key]
+                row += f" & {np.mean(translations):.4f} ({np.std(translations):.4f})"
             row += "\\\\\n"
 
             all_average_str.append(row)
 
         all_average_str = f"\\cmidrule(lr){{1-{ncols}}}\n".join(all_average_str)
 
+        table_header = (
+            f"\\makecell{{\\textbf{{From {reference_system.name}}} \\\\ \\textbf{{to}} }} & " 
+            f"\\makecell{{\\textbf{{Average transformation}} \\\\ \\textbf{{matrix}}}}" 
+            f"{" & \\makecell{\\textbf{Angle to mean (" f"{"rad" if not angle_in_degrees else "\\textdegree"}" ")} \\\\ \\textbf{Mean (SD)}}" if average_angles else ""}"
+            f"{" & \\makecell{\\textbf{Translation to mean (mm)} \\\\ \\textbf{Mean (SD)}}" if average_translations else ""}"
+        )
         latex_content = f"""
 \\documentclass{{article}}
 \\usepackage{{amsmath}}
@@ -87,9 +103,9 @@ class PlotHelpers:
 
 \\begin{{table}}[ht!]
 \\centering
-\\begin{{tabular}}{{{"lcc" if ncols == 3 else "lc"}}}
+\\begin{{tabular}}{{l{"c" * (ncols - 1)}}}
 \\toprule
-\\makecell{{\\textbf{{From {reference_system.name}}} \\\\ \\textbf{{to}} }} & \\makecell{{\\textbf{{Average transformation}} \\\\ \\textbf{{matrix}}}}{" & \\makecell{\\textbf{Angle} \\\\ \\textbf{Mean (SD)}}" if ncols == 3 else ""} \\\\
+{table_header} \\\\
 \\midrule
 {all_average_str}
 \\bottomrule

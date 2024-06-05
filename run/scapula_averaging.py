@@ -152,8 +152,8 @@ def main():
         },
         "Statistics": {
             "to_use": ["A", "P"],
-            "A": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 5},
-            "P": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 5},
+            "A": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 500},
+            "P": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 500},
             "shared_indices_with_reference": True,
             "reference": {
                 "path": f"{base_folder}/Modele_stat/data/PJ116_scapula_A_avg.ply",
@@ -224,19 +224,29 @@ def main():
     reference_scapula = reference_scapulas[reference_for_output]
     average_rts: dict[str, dict[JointCoordinateSystem, np.array]] = {}
     reference_rts: dict[str, dict[JointCoordinateSystem, np.array]] = {}
-    average_errors: dict[str, dict[JointCoordinateSystem, np.array]] = {}
+    average_rotation_errors: dict[str, dict[JointCoordinateSystem, np.array]] = {}
+    average_translation_errors: dict[str, dict[JointCoordinateSystem, np.array]] = {}
     for key in scapulas.keys():
         average_rts[key] = {}
-        average_errors[key] = {}
+        average_rotation_errors[key] = {}
+        average_translation_errors[key] = {}
         reference_rts[key] = {}
         for type in JointCoordinateSystem:
             all_rt = Scapula.change_frame_of_reference(scapulas[key], type, reference_system=JointCoordinateSystem.ISB)
+            # Modify the translation so it is in meter (as opposed to normalized)
+            for i, rt in enumerate(all_rt):
+                rt[:3, 3] *= scapulas[key][i].scale_factor
+
             average_rts[key][type] = MatrixHelpers.average_matrices(all_rt)
-            average_errors[key][type] = MatrixHelpers.angle_between_rotations(all_rt, average_rts[key][type])
+            average_rotation_errors[key][type] = MatrixHelpers.angle_between_rotations(all_rt, average_rts[key][type])
+            average_translation_errors[key][type] = MatrixHelpers.distance_between_origins(
+                all_rt, average_rts[key][type]
+            )
 
             reference_rt = Scapula.change_frame_of_reference(
                 [reference_scapula], type, reference_system=JointCoordinateSystem.ISB
             )
+            reference_rt[0][:3, 3] *= reference_scapula.scale_factor
             reference_rts[key][type] = MatrixHelpers.average_matrices(reference_rt)
 
     # Export to LaTeX
@@ -245,7 +255,8 @@ def main():
             PlotHelpers.export_average_matrix_to_latex(
                 f"{latex_save_folder}/average_transformations_{key}.tex",
                 average_rts[key],
-                average_errors[key],
+                average_rotation_errors[key],
+                average_translation_errors[key],
                 angle_name=key,
                 reference_system=JointCoordinateSystem.ISB,
                 angle_in_degrees=angle_in_degrees,
@@ -253,7 +264,8 @@ def main():
             PlotHelpers.export_average_matrix_to_latex(
                 f"{latex_save_folder}/reference_transformations_{key}.tex",
                 reference_rts[key],
-                None,
+                average_angles=None,
+                average_translations=None,
                 angle_name=key,
                 reference_system=JointCoordinateSystem.ISB,
                 angle_in_degrees=angle_in_degrees,
@@ -261,7 +273,7 @@ def main():
 
     if plot_histograms:
         Scapula.plot_error_histogram(
-            average_rts=average_rts, average_errors=average_errors, angle_in_degrees=angle_in_degrees
+            average_rts=average_rts, average_errors=average_rotation_errors, angle_in_degrees=angle_in_degrees
         )
 
     # Plot all the scapula rt

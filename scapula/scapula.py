@@ -76,7 +76,7 @@ class Scapula:
         self._landmarks: dict[str, np.ndarray] = None  # The landmarks of the scapula in RAW_NORMALIZED
         self._glenoid_contour_indices = None  # The indices of the glenoid contours
         self._gcs: np.ndarray = None  # The coordinate system based on ISB that gets data from RAW_NORMALIZED to LOCAL
-        self.local_data: np.ndarray = None  # The scapula data in LOCAL
+        self.local_data: np.ndarray = None  # The scapula data in LOCAL as RAW_NORMALIZED but positionned at 0,0,0
 
     @classmethod
     def from_landmarks(
@@ -348,6 +348,16 @@ class Scapula:
             return self.local_data
         else:
             raise ValueError("Unsupported data type")
+
+    @property
+    def scale_factor(self) -> float:
+        """
+        Get the scale factor of the scapula.
+
+        Returns:
+        scale_factor: the scale factor
+        """
+        return self._scale_factor
 
     @property
     def user_defined_landmark_names(self):

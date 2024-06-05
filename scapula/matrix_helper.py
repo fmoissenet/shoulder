@@ -287,19 +287,32 @@ class MatrixHelpers:
 
         return out
 
-    def angle_between_rotations(rotations: list[np.ndarray], rotation2: np.ndarray) -> np.ndarray:
+    def angle_between_rotations(rotations: list[np.ndarray], rotation_reference: np.ndarray) -> np.ndarray:
         """
         Compute the angle between two rotations, following the formula:
         angle = arccos((trace(R1.T @ R2) - 1) / 2)
 
         Args:
         rotations: list of numpy arrays of shape (3, 3) representing the first rotation matrices
-        rotation2: numpy array of shape (3, 3) representing the second rotation matrix
+        rotation_reference: numpy array of shape (3, 3) representing the second rotation matrix
 
         Returns:
         angles: numpy array of shape (N,) representing the angles between the rotations to the second rotation matrix
         """
-        return np.array([np.arccos((np.trace(rt[:3, :3].T @ rotation2[:3, :3]) - 1) / 2) for rt in rotations])
+        return np.array([np.arccos((np.trace(rt[:3, :3].T @ rotation_reference[:3, :3]) - 1) / 2) for rt in rotations])
+
+    def distance_between_origins(homogeneous: list[np.ndarray], homogeneous_reference: np.ndarray) -> np.ndarray:
+        """
+        Compute the euclidean distance between the origins of a list of homogeneous matrices and a reference homogeneous
+
+        Args:
+        homogeneous: list of numpy arrays of shape (4, 4) representing the homogeneous matrices
+        homogeneous_reference: numpy array of shape (4, 4) representing the homogeneous matrix
+
+        Returns:
+        distances: numpy array of shape (N,) representing the distances between the origins
+        """
+        return np.array([np.linalg.norm(rt[:3, 3] - homogeneous_reference[:3, 3]) for rt in homogeneous])
 
     def compute_best_fit_transformation(points1, points2):
         """
