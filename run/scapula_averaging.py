@@ -105,7 +105,7 @@ def get_reference_scapula(filepath: str, use_precomputed_values: bool):
 
 def main():
     #### OPTIONS ####
-    skip = ["EOS"]  # ["Statistics"]  # ["EOS"]
+    skip = []  # ["Statistics"]  # ["EOS"]
     base_folder = "models/scapula/"
     reference_for_output = "Statistics"
     plot_individual_scapulas = False
@@ -232,9 +232,7 @@ def main():
         average_translation_errors[key] = {}
         reference_rts[key] = {}
         for target in JointCoordinateSystem:
-            all_rt = Scapula.change_frame_of_reference(
-                scapulas[key], target, reference_system=JointCoordinateSystem.ISB
-            )
+            all_rt = Scapula.get_frame_of_reference(scapulas[key], target, reference_system=JointCoordinateSystem.ISB)
             # Modify the translation so it is in distance (as opposed to normalized)
             for i, rt in enumerate(all_rt):
                 rt[:3, 3] *= scapulas[key][i].scale_factor
@@ -247,7 +245,7 @@ def main():
                 all_rt, average_rts[key][target]
             )
 
-            reference_rt = Scapula.change_frame_of_reference(
+            reference_rt = Scapula.get_frame_of_reference(
                 [reference_scapula], target, reference_system=JointCoordinateSystem.ISB
             )
             reference_rt[0][:3, 3] *= reference_scapula.scale_factor

@@ -44,7 +44,7 @@ TODO
 - <a id="definitions-ai"></a>**AI**: Angulus Inferior joint
 - <a id="definitions-gc_contours"></a>**GC_CONTOURS**: Glenoid Cavity Contours
 - <a id="definitions-gc_mid"></a>**GC_MID**: Glenoid cavity midpoint computed from [*IE*](#definitions-ie) and [*SE*](#definitions-se)
-- <a id="definitions-gc_contour_normal"></a>**GC_CONTOUR_NORMAL**: Glenoid cavity normal computed from the best fitting plane of the [*GC_CONTOURS*](#definitions-gc_contours)
+- <a id="definitions-gc_normal"></a>**GC_NORMAL**: Glenoid cavity normal computed from the best fitting plane of the [*GC_CONTOURS*](#definitions-gc_contours)
 - <a id="definitions-gc_circle_center"></a>**GC_CIRCLE_CENTER**: Glenoid cavity as the center point of the best fitting circle of the [*GC_CONTOURS*](#definitions-gc_contours)
 - <a id="definitions-gc_ellipse_center"></a>**GC_ELLIPSE_CENTER**: Glenoid cavity as the center point of the best fitting ellipse of the [*GC_CONTOURS*](#definitions-gc_contours)
 - <a id="definitions-gc_ellipse_major"></a>**GC_ELLIPSE_MAJOR**: Glenoid cavity as the major axis of the best fitting ellipse of the [*GC_CONTOURS*](#definitions-gc_contours)
@@ -127,7 +127,7 @@ TODO
 
     Note: this algorithm exclude the use of the *.stl files as they are not simply morphed from the reference scapula like the *.ply files are. 
 
-1. *Load the scapula geometries:* A total of 80 scans of scapula geometry were available. For each scapula, we call the `Scapula.from_reference_scapula` method to either load the geometry from an object file (`*.ply`) or directly store from the geometry itself. If the geometry was from a left-hand side scapula, we set the `is_left` parameter to `True`.
+1. *Load the scapula geometries:* A total of 80 scans of scapula geometry (28 from asymptomatic scapulas and 52 from pathologic scapulas) were available. For each scapula, we call the `Scapula.from_reference_scapula` method to either load the geometry from an object file (`*.ply`) or directly store from the geometry itself. If the geometry was from a left-hand side scapula, we set the `is_left` parameter to `True`.
 
 2. *Mirror the geometry if needed:* While loading the geometry, if the scapula was marked as left, we mirror the scapula so that it becomes right-hand side by multiplying the x-axis by -1.
 
@@ -141,8 +141,11 @@ TODO
 
 1. *Compute extra landmarks:* from the pointed bony landmarks, we compute some extra landmarks as such:
    1. [*GC_MID*](#definitions-gc_mid) as the mean of [*IE*](#definitions-ie) and [*SE*](#definitions-se);
-   2. [*GC_CIRCLE_CENTER*](#definitions-gc_circle_center) as the center of the best fitting circle of the [*GC_CONTOURS*](#definitions-gc_contours), projected on the best fitting plane, using a least square method;
-   3. [*GC_ELLIPSE_CENTER*](#definitions-gc_ellipse_center) as the center of the best fitting ellipse of the [*GC_CONTOURS*](#definitions-gc_contours), projected on the best fitting plane, using an optimization method.
+   2. [*GC_NORMAL*](#definitions-gc_normal) as the normal of the best fitting plane of the [*GC_CONTOURS*](#definitions-gc_contours). To ensure the normal is pointing outwards, we project the normal in the [*ISB*](#definitions-isb) reference system and flip it if the Z-component is negative;
+   3. [*GC_CIRCLE_CENTER*](#definitions-gc_circle_center) as the center of the best fitting circle of the [*GC_CONTOURS*](#definitions-gc_contours), projected on the best fitting plane, using a least square method;
+   4. [*GC_ELLIPSE_CENTER*](#definitions-gc_ellipse_center) as the center of the best fitting ellipse of the [*GC_CONTOURS*](#definitions-gc_contours), projected on the best fitting plane, using an optimization method;
+   5. [*GC_ELLIPSE_MAJOR*](#definitions-gc_ellipse_major) as the major axis of the best fitting ellipse of the [*GC_CONTOURS*](#definitions-gc_contours), projected on the best fitting plane, using an optimization method;
+   6. [*GC_ELLIPSE_MINOR*](#definitions-gc_ellipse_minor) as the minor axis of the best fitting ellipse of the [*GC_CONTOURS*](#definitions-gc_contours), projected on the best fitting plane, using an optimization method.
 
 2. <a id="method-step_3_normalize"></a>*Normalize the data:* Compute the [normalized data](#definitions-normalized_data) from the [raw data](#definitions-raw_data) by homogeneously dividing the geometry coordinates by the norm of the vector [*AI*](#definitions-ai) to [*AA*](#definitions-aa), and then by transporting the geometry so the global reference frame coincides with the [*ISB*](#definitions-isb) joint coordinate system.
    
@@ -151,12 +154,10 @@ TODO
 
 #### ***Step 4***: Average the JCS
 
-    In brief,  
+    In brief, compute the average transformation matrix from the ISB to all JCS
 
     Main functions called: 
-        all_rt = Scapula.change_frame_of_reference(
-            scapulas, target_reference_system
-        )
+        all_rt = Scapula.get_frame_of_reference(scapulas, target_reference_system)
         average_rts = MatrixHelpers.average_matrices(all_rt)
     where 
         scapulas, A collection of the scapulas outputed from the Step 3;
@@ -181,7 +182,7 @@ TODO
 
 #### ***Step 5***: Compute errors and standard deviations
 
-    In brief, 
+    In brief, compute the orientation and translation errors between the JCS of all the scapulas and the average JCS.
 
     Main functions called: 
         rotation_errors = MatrixHelpers.angle_between_rotations(all_rt, average_rt)

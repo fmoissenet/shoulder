@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Button, TextBox
 from plyfile import PlyData
 from scapula.geometry import Circle3D, Ellipse3D
+from skspatial.objects import Plane
 from stl import Mesh
 
 from .enums import ScapulaDataType, JointCoordinateSystem
@@ -386,15 +387,15 @@ class Scapula:
             "AA",
             "AC",
             "AI",
+            "IE",
+            "SE",
+            "TS",
             "GC_MID",
-            "GC_CONTOUR_NORMAL",
+            "GC_NORMAL",
             "GC_CIRCLE_CENTER",
             "GC_ELLIPSE_CENTER",
             "GC_ELLIPSE_MAJOR",
             "GC_ELLIPSE_MINOR",
-            "IE",
-            "SE",
-            "TS",
         ]
 
     @property
@@ -409,15 +410,15 @@ class Scapula:
             "Acromion Angle",
             "Dorsal of Acromioclavicular joint",
             "Angulus Inferior",
+            "Inferior Edge of glenoid",
+            "Superior Edge of glenoid",
+            "Trigonum Spinae",
             "Glenoid Center (from IE and SE)",
             "Normal of Glenoid plane",
             "Glenoid Center (from circle fitting)",
             "Glenoid Center (from ellipse fitting)",
             "Glenoid Ellipse Major Axis",
             "Glenoid Ellipse Minor Axis",
-            "Inferior Edge of glenoid",
-            "Superior Edge of glenoid",
-            "Trigonum Spinae",
         ]
 
     def get_joint_coordinates_system(
@@ -507,20 +508,31 @@ class Scapula:
         for name in self.landmark_names:
             if "GC_MID" == name:
                 out["GC_MID"] = np.mean(self.normalized_raw_data[:, [landmarks["IE"], landmarks["SE"]]], axis=1)
-            elif "GC_CIRCLE_CENTER" == name:
+
+            elif "GC_NORMAL" == name:
+                # This necessitate that AI, TS and AA are already computed
                 self._glenoid_contour_indices = landmarks["GC_CONTOURS"]
                 circle = Circle3D(self.normalized_raw_data[:, self._glenoid_contour_indices][:3, :].T)
+
+                # Project in ISB to make sure we understand the orientation of the normal. It shoud be pointing outwards
+                isb = JointCoordinateSystem.ISB(out)
+                normal_isb = isb @ np.concatenate((circle.center + circle.normal, [1]))[:, None]
+
+                normal = circle.center + (circle.normal * (1 if normal_isb[2, 0] > 0 else -1))
+                out["GC_NORMAL"] = np.concatenate((normal, [1]))[:, None]
+
+            elif "GC_CIRCLE_CENTER" == name:
+                # This necessitate that GC_NORMAL is already computed
+                circle = Circle3D(self.normalized_raw_data[:, self._glenoid_contour_indices][:3, :].T)
                 out["GC_CIRCLE_CENTER"] = np.concatenate((circle.center, [1]))[:, None]
-                out["GC_CONTOUR_NORMAL"] = np.concatenate((circle.center + circle.normal, [1]))[:, None]
-            elif "GC_CONTOUR_NORMAL" == name:
-                # Already computed when computing GC_CIRCLE_CENTER
-                pass
+
             elif "GC_ELLIPSE_CENTER" == name:
-                self._glenoid_contour_indices = landmarks["GC_CONTOURS"]
+                # This necessitate that GC_NORMAL is already computed
                 ellipse = Ellipse3D(self.normalized_raw_data[:, self._glenoid_contour_indices][:3, :].T)
                 out["GC_ELLIPSE_CENTER"] = np.concatenate((ellipse.center, [1]))[:, None]
                 out["GC_ELLIPSE_MAJOR"] = np.concatenate((ellipse.center + ellipse.major_radius, [1]))[:, None]
                 out["GC_ELLIPSE_MINOR"] = np.concatenate((ellipse.center + ellipse.minor_radius, [1]))[:, None]
+
             elif "GC_ELLIPSE_MAJOR" == name or "GC_ELLIPSE_MINOR" == name:
                 # Already computed when computing GC_ELLIPSE_CENTER
                 pass
@@ -717,14 +729,13 @@ class Scapula:
         return picked_points
 
     @staticmethod
-    def change_frame_of_reference(
+    def get_frame_of_reference(
         scapulas: list["Scapula"],
         jcs_type: JointCoordinateSystem,
         reference_system: JointCoordinateSystem = None,
     ) -> list["Scapula"]:
         """
-        Change the frame of reference of the scapulas to the desired coordinate system. If None is passed as the reference
-        system, no transformation will be applied.
+        Get the frame of reference of the scapulas to the desired coordinate system.
 
         Args:
         scapulas: list of scapulas

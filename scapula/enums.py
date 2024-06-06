@@ -69,7 +69,7 @@ class JointCoordinateSystem(Enum):
         origin=["GC_MID"],
         axis=(["IE"], ["SE"]),
         axis_name="y",
-        plane="GC_CONTOUR_NORMAL",
+        plane="GC_NORMAL",
         plane_name="z",
         keep="axis",
     )
@@ -77,7 +77,7 @@ class JointCoordinateSystem(Enum):
         origin=["GC_ELLIPSE_CENTER"],
         axis="GC_ELLIPSE_MAJOR",
         axis_name="z",
-        plane="GC_CONTOUR_NORMAL",
+        plane="GC_NORMAL",
         plane_name="y",
         keep="axis",
     )
@@ -85,7 +85,7 @@ class JointCoordinateSystem(Enum):
         origin=["GC_MID"],
         axis=[["IE"], ["SE"]],
         axis_name="z",
-        plane="GC_CONTOUR_NORMAL",
+        plane="GC_NORMAL",
         plane_name="x",
         keep="axis",
     )
@@ -93,7 +93,7 @@ class JointCoordinateSystem(Enum):
         origin=["GC_ELLIPSE_CENTER"],
         axis=(["IE"], ["SE"]),
         axis_name="x",
-        plane="GC_CONTOUR_NORMAL",
+        plane="GC_NORMAL",
         plane_name="z",
         keep="axis",
     )
