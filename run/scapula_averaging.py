@@ -231,23 +231,27 @@ def main():
         average_rotation_errors[key] = {}
         average_translation_errors[key] = {}
         reference_rts[key] = {}
-        for type in JointCoordinateSystem:
-            all_rt = Scapula.change_frame_of_reference(scapulas[key], type, reference_system=JointCoordinateSystem.ISB)
-            # Modify the translation so it is in meter (as opposed to normalized)
+        for target in JointCoordinateSystem:
+            all_rt = Scapula.change_frame_of_reference(
+                scapulas[key], target, reference_system=JointCoordinateSystem.ISB
+            )
+            # Modify the translation so it is in distance (as opposed to normalized)
             for i, rt in enumerate(all_rt):
                 rt[:3, 3] *= scapulas[key][i].scale_factor
 
-            average_rts[key][type] = MatrixHelpers.average_matrices(all_rt)
-            average_rotation_errors[key][type] = MatrixHelpers.angle_between_rotations(all_rt, average_rts[key][type])
-            average_translation_errors[key][type] = MatrixHelpers.distance_between_origins(
-                all_rt, average_rts[key][type]
+            average_rts[key][target] = MatrixHelpers.average_matrices(all_rt)
+            average_rotation_errors[key][target] = MatrixHelpers.angle_between_rotations(
+                all_rt, average_rts[key][target]
+            )
+            average_translation_errors[key][target] = MatrixHelpers.distance_between_origins(
+                all_rt, average_rts[key][target]
             )
 
             reference_rt = Scapula.change_frame_of_reference(
-                [reference_scapula], type, reference_system=JointCoordinateSystem.ISB
+                [reference_scapula], target, reference_system=JointCoordinateSystem.ISB
             )
             reference_rt[0][:3, 3] *= reference_scapula.scale_factor
-            reference_rts[key][type] = MatrixHelpers.average_matrices(reference_rt)
+            reference_rts[key][target] = MatrixHelpers.average_matrices(reference_rt)
 
     # Export to LaTeX
     if generate_latex:

@@ -132,43 +132,38 @@ class Scapula:
 
         # Compute the local data
         expected_maximal_error = 0.01  # 1% of the scapula size
-        gcs_T, error = MatrixHelpers.icp(
-            scapula.normalized_raw_data,
-            reference_scapula.get_data(ScapulaDataType.LOCAL),
-            share_indices=shared_indices_with_reference,
-            return_points_error=True,
-        )
-        if not shared_indices_with_reference and error > expected_maximal_error:
-            # Try a second type but rotating the values to see if it improves the result
-            # It is useless to try this in a shared indices scenario as the indices ensure that the rotation is correct
-            # by definition
-            gcs_T_tp, error_tp = MatrixHelpers.icp(
-                scapula.normalized_raw_data,
-                reference_scapula.get_data(ScapulaDataType.LOCAL),
-                share_indices=False,
-                initial_rt=MatrixHelpers.from_euler([np.pi], "z", homogenous=True) @ gcs_T,
-                return_points_error=True,
-            )
-            # Take the best result
-            if error_tp < error:
-                gcs_T = gcs_T_tp
-
-        local_data = gcs_T @ scapula.normalized_raw_data
-
-        # Find the landmarks in the normalized data
         reference_landmarks = reference_scapula.landmarks(ScapulaDataType.LOCAL, as_array=True)
         if shared_indices_with_reference:
             _, landmark_idx = MatrixHelpers.nearest_neighbor(
                 reference_landmarks[:3, :], reference_scapula.local_data[:3, :]
             )
         else:
-            _, landmark_idx = MatrixHelpers.nearest_neighbor(reference_landmarks[:3, :], local_data[:3, :])
-        landmarks = {key: scapula.raw_data[:, landmark_idx[i]] for i, key in enumerate(scapula.landmark_names)}
-
-        if not shared_indices_with_reference:
-            raise NotImplementedError(
-                "The shared_indices_with_reference=False is not implemented yet for Glenoid contours"
+            # raise NotImplementedError(
+            #     "The shared_indices_with_reference=False is not implemented yet with Glenoid contours"
+            # )
+            gcs_T, error = MatrixHelpers.icp(
+                scapula.normalized_raw_data, reference_scapula.get_data(ScapulaDataType.LOCAL), return_points_error=True
             )
+            if error > expected_maximal_error:
+                # Try a second time but rotating the values to see if it improves the result
+                # It is useless to try this in a shared indices scenario as the indices ensure that the rotation is correct
+                # by definition
+                gcs_T_tp, error_tp = MatrixHelpers.icp(
+                    scapula.normalized_raw_data,
+                    reference_scapula.get_data(ScapulaDataType.LOCAL),
+                    initial_rt=MatrixHelpers.from_euler([np.pi], "z", homogenous=True) @ gcs_T,
+                    return_points_error=True,
+                )
+                # Take the best result
+                if error_tp < error:
+                    gcs_T = gcs_T_tp
+
+            local_data = gcs_T @ scapula.normalized_raw_data
+
+            # Find the landmarks in the normalized data
+            _, landmark_idx = MatrixHelpers.nearest_neighbor(reference_landmarks[:3, :], local_data[:3, :])
+
+        landmarks = {key: scapula.raw_data[:, landmark_idx[i]] for i, key in enumerate(scapula.landmark_names)}
         landmarks["GC_CONTOURS"] = [val for val in scapula.raw_data[:, reference_scapula._glenoid_contour_indices].T]
 
         # Create and return the scapula object
