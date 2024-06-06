@@ -108,7 +108,7 @@ def main():
     skip = []  # ["Statistics"]  # ["EOS"]
     base_folder = "models/scapula/"
     reference_for_output = "Statistics"
-    plot_individual_scapulas = False
+    plot_individual_scapulas = True
     plot_reference_scapula = False
     plot_all_scapulas = False
     plot_average_scapulas = True
@@ -152,8 +152,8 @@ def main():
         },
         "Statistics": {
             "to_use": ["A", "P"],
-            "A": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 500},
-            "P": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 500},
+            "A": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 5},
+            "P": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 5},
             "shared_indices_with_reference": True,
             "reference": {
                 "path": f"{base_folder}/Modele_stat/data/PJ116_scapula_A_avg.ply",
@@ -215,7 +215,7 @@ def main():
                         show_now=False, marker="o", color="b", s=5, alpha=0.1, landmarks_color="b"
                     ),
                     data_type=ScapulaDataType.LOCAL,
-                    show_jcs=[JointCoordinateSystem.ISB],
+                    show_jcs=[JointCoordinateSystem.SCS10],
                     show_now=True,
                     color="r",
                 )
