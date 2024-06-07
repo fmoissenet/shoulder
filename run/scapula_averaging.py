@@ -108,7 +108,7 @@ def main():
     skip = []  # ["Statistics"]  # ["EOS"]
     base_folder = "models/scapula/"
     reference_for_output = "Statistics"
-    plot_individual_scapulas = True
+    plot_individual_scapulas = False
     plot_reference_scapula = False
     plot_all_scapulas = False
     plot_average_scapulas = True
@@ -152,8 +152,8 @@ def main():
         },
         "Statistics": {
             "to_use": ["A", "P"],
-            "A": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 5},
-            "P": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 5},
+            "A": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 500},
+            "P": {"folder": f"{base_folder}/Modele_stat/data/", "generate": 500},
             "shared_indices_with_reference": True,
             "reference": {
                 "path": f"{base_folder}/Modele_stat/data/PJ116_scapula_A_avg.ply",
@@ -257,18 +257,16 @@ def main():
             PlotHelpers.export_average_matrix_to_latex(
                 f"{latex_save_folder}/average_transformations_{key}.tex",
                 average_rts[key],
-                average_rotation_errors[key],
-                average_translation_errors[key],
+                reference_rts[key],
                 angle_name=key,
                 reference_system=JointCoordinateSystem.ISB,
-                angle_in_degrees=angle_in_degrees,
             )
-            PlotHelpers.export_average_matrix_to_latex(
-                f"{latex_save_folder}/reference_transformations_{key}.tex",
-                reference_rts[key],
-                average_angles=None,
-                average_translations=None,
+
+            PlotHelpers.export_errors_to_latex(
+                f"{latex_save_folder}/errors_{key}.tex",
                 angle_name=key,
+                average_angles=average_rotation_errors[key],
+                average_translations=average_translation_errors[key],
                 reference_system=JointCoordinateSystem.ISB,
                 angle_in_degrees=angle_in_degrees,
             )

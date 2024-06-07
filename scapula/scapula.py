@@ -512,13 +512,14 @@ class Scapula:
             elif "GC_NORMAL" == name:
                 # This necessitate that AI, TS and AA are already computed
                 self._glenoid_contour_indices = landmarks["GC_CONTOURS"]
-                circle = Circle3D(self.normalized_raw_data[:, self._glenoid_contour_indices][:3, :].T)
+                plane = Plane.best_fit(self.normalized_raw_data[:, self._glenoid_contour_indices][:3, :].T)
 
                 # Project in ISB to make sure we understand the orientation of the normal. It shoud be pointing outwards
-                isb = JointCoordinateSystem.ISB(out)
-                normal_isb = isb @ np.concatenate((circle.center + circle.normal, [1]))[:, None]
+                isb_T = MatrixHelpers.transpose_homogenous_matrix(JointCoordinateSystem.ISB(out))
+                point_isb = isb_T @ np.concatenate((plane.point, [1]))[:, None]
+                normal_isb = isb_T @ np.concatenate((plane.point + plane.normal, [1]))[:, None]
 
-                normal = circle.center + (circle.normal * (1 if normal_isb[2, 0] > 0 else -1))
+                normal = plane.point + (plane.normal * (1 if normal_isb[2, 0] > point_isb[2, 0] else -1))
                 out["GC_NORMAL"] = np.concatenate((normal, [1]))[:, None]
 
             elif "GC_CIRCLE_CENTER" == name:
