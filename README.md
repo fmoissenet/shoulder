@@ -22,6 +22,10 @@ conda install pkgconfig cmake swig numpy scipy matplotlib rbdl eigen ipopt pyqt 
 Please note that `bioviz` does not need to be installed. 
 If you initialize the submodule, then the `PYTHONPATH` should points to `{$ROOT_SHOULDER}/external/bioviz`. 
 
+## Scapula averaging
+
+In order to run the `scapula_avering.py` script, you must extract the scapulas. The expected hierachy is `{$ROOT_SHOULDER}/run/scapula/{EXTRACTED_FOLDER}`, where `EXTRACTED_FOLDER` is either `Modele_stat` or `Scapula-BD-EOS` the subfolders are the extracted ones.
+
 # Algorithms
 
 In this section, I walk through the algorithms used in the `shoulder` package.
