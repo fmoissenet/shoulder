@@ -6,12 +6,16 @@ from scapula import Scapula, ScapulaDataType, PlotHelpers, JointCoordinateSystem
 from models.scapula.reference_scapula import get_reference_scapula
 
 
+# TODO: The SCS8 and SCS10 don't fully conform to the definition as "Glenoid posteroanterior axis" cannot be defined yet
+# TODO: The defition of SCS9 is defined differently, but should give the same results as the plane and the major/minor axis are all perpendicular
+
+
 def main():
     #### OPTIONS ####
-    skip = []  # ["Statistics"]  # ["EOS"]
+    skip = []  # ["EOS"]
     base_folder = "models/scapula/"
     reference_for_output = "Statistics"
-    reference_jcs_type = JointCoordinateSystem.SCS10
+    reference_jcs_type = JointCoordinateSystem.SCS1
     plot_individual_scapulas = False
     plot_reference_scapula = False
     plot_all_scapulas = False

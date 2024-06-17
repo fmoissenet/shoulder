@@ -79,6 +79,7 @@ class Scapula:
         self._scale_factor: float = None  # The scale factor to normalize the scapula (based on the AI and AA landmarks)
         self._landmarks: dict[str, np.ndarray] = None  # The landmarks of the scapula in RAW_NORMALIZED
         self._glenoid_contour_indices = None  # The indices of the glenoid contours
+        self._glenoid_lower_contour_indices = None  # The indices of the glenoid contours of the lower part
         self._gcs: np.ndarray = None  # The coordinate system based on ISB that gets data from RAW_NORMALIZED to LOCAL
         self.local_data: np.ndarray = None  # The scapula data in LOCAL as RAW_NORMALIZED but positionned at 0,0,0
 
@@ -87,7 +88,7 @@ class Scapula:
         cls,
         geometry: str | np.ndarray,
         predefined_landmarks: dict[str, np.ndarray] = None,
-        reference_jcs_type: JointCoordinateSystem = JointCoordinateSystem.ISB,
+        reference_jcs_type: JointCoordinateSystem = JointCoordinateSystem.SCS1,
         is_left: bool = False,
     ) -> "Scapula":
         """
@@ -116,7 +117,7 @@ class Scapula:
         cls,
         geometry: str | np.ndarray,
         reference_scapula: "Scapula",
-        reference_jcs_type: JointCoordinateSystem = JointCoordinateSystem.ISB,
+        reference_jcs_type: JointCoordinateSystem = JointCoordinateSystem.SCS1,
         shared_indices_with_reference: bool = False,
         is_left: bool = False,
     ) -> "Scapula":
@@ -173,6 +174,9 @@ class Scapula:
 
         landmarks = {key: scapula.raw_data[:, landmark_idx[i]] for i, key in enumerate(scapula.landmark_names)}
         landmarks["GC_CONTOURS"] = [val for val in scapula.raw_data[:, reference_scapula._glenoid_contour_indices].T]
+        landmarks["GC_LOWER_CONTOURS"] = [
+            val for val in scapula.raw_data[:, reference_scapula._glenoid_lower_contour_indices].T
+        ]
 
         # Create and return the scapula object
         scapula._fill_mandatory_fields(predefined_landmarks=landmarks)
@@ -183,7 +187,7 @@ class Scapula:
         cls,
         reference_scapula: "Scapula",
         models_folder: str,
-        reference_jcs_type: JointCoordinateSystem = JointCoordinateSystem.ISB,
+        reference_jcs_type: JointCoordinateSystem = JointCoordinateSystem.SCS1,
         number_to_generate: int = 1,
         model: str = "A",
         mode_ranges=None,
@@ -373,7 +377,7 @@ class Scapula:
         Returns:
         landmark_names: the names of the landmarks
         """
-        return ["AA", "AC", "AI", "IE", "SE", "GC_CONTOURS", "TS"]
+        return ["AA", "AC", "AI", "IE", "SE", "GC_CONTOURS", "GC_LOWER_CONTOURS", "TS"]
 
     @property
     def user_defined_landmark_has_muliple_points(self) -> list[bool]:
@@ -522,12 +526,12 @@ class Scapula:
                 out["GC_MID"] = np.mean(self.normalized_raw_data[:, [landmarks["IE"], landmarks["SE"]]], axis=1)
 
             elif "GC_NORMAL" == name:
-                # This necessitate that AI, TS and AA are already computed
+                # This necessitate that AI, TS and AA are already computed so ISB system can be defined
                 self._glenoid_contour_indices = landmarks["GC_CONTOURS"]
                 plane = Plane.best_fit(self.normalized_raw_data[:, self._glenoid_contour_indices][:3, :].T)
 
                 # Project in ISB to make sure we understand the orientation of the normal. It shoud be pointing outwards
-                isb_T = MatrixHelpers.transpose_homogenous_matrix(JointCoordinateSystem.ISB(out))
+                isb_T = MatrixHelpers.transpose_homogenous_matrix(JointCoordinateSystem.SCS1(out))
                 point_isb = isb_T @ np.concatenate((plane.point, [1]))[:, None]
                 normal_isb = isb_T @ np.concatenate((plane.point + plane.normal, [1]))[:, None]
 
@@ -535,12 +539,14 @@ class Scapula:
                 out["GC_NORMAL"] = np.concatenate((normal, [1]))[:, None]
 
             elif "GC_CIRCLE_CENTER" == name:
-                # This necessitate that GC_NORMAL is already computed
-                circle = Circle3D(self.normalized_raw_data[:, self._glenoid_contour_indices][:3, :].T)
+                self._glenoid_lower_contour_indices = landmarks["GC_LOWER_CONTOURS"]
+
+                circle = Circle3D(self.normalized_raw_data[:, self._glenoid_lower_contour_indices][:3, :].T)
                 out["GC_CIRCLE_CENTER"] = np.concatenate((circle.center, [1]))[:, None]
 
             elif "GC_ELLIPSE_CENTER" == name:
-                # This necessitate that GC_NORMAL is already computed
+                self._glenoid_contour_indices = landmarks["GC_CONTOURS"]
+
                 ellipse = Ellipse3D(self.normalized_raw_data[:, self._glenoid_contour_indices][:3, :].T)
                 out["GC_ELLIPSE_CENTER"] = np.concatenate((ellipse.center, [1]))[:, None]
                 out["GC_ELLIPSE_MAJOR"] = np.concatenate((ellipse.center + ellipse.major_radius, [1]))[:, None]
@@ -608,7 +614,7 @@ class Scapula:
             ax.scatter(landmarks[0, :], landmarks[1, :], landmarks[2, :], c=landmarks_color, s=50)
 
         if show_glenoid:
-            circle_3d = Circle3D(self.get_data(data_type)[:3, self._glenoid_contour_indices].T)
+            circle_3d = Circle3D(self.get_data(data_type)[:3, self._glenoid_lower_contour_indices].T)
             t = np.linspace(0.0, 2 * np.pi, 1000)
             points = circle_3d.equation(t)
             ax.plot(points[:, 0], points[:, 1], points[:, 2])

@@ -47,9 +47,10 @@ TODO
 - <a id="definitions-ac"></a>**AC**: Dorsal of Acromioclavicular joint
 - <a id="definitions-ai"></a>**AI**: Angulus Inferior joint
 - <a id="definitions-gc_contours"></a>**GC_CONTOURS**: Glenoid Cavity Contours
+- <a id="definitions-gc_lower_contours"></a>**GC_LOWER_CONTOURS**: Glenoid Cavity Contours of ther Lower part
 - <a id="definitions-gc_mid"></a>**GC_MID**: Glenoid cavity midpoint computed from [*IE*](#definitions-ie) and [*SE*](#definitions-se)
 - <a id="definitions-gc_normal"></a>**GC_NORMAL**: Glenoid cavity normal computed from the best fitting plane of the [*GC_CONTOURS*](#definitions-gc_contours)
-- <a id="definitions-gc_circle_center"></a>**GC_CIRCLE_CENTER**: Glenoid cavity as the center point of the best fitting circle of the [*GC_CONTOURS*](#definitions-gc_contours)
+- <a id="definitions-gc_circle_center"></a>**GC_CIRCLE_CENTER**: Glenoid cavity as the center point of the best fitting circle of the [*GC_LOWER_CONTOURS*](#definitions-gc_lower_contours)
 - <a id="definitions-gc_ellipse_center"></a>**GC_ELLIPSE_CENTER**: Glenoid cavity as the center point of the best fitting ellipse of the [*GC_CONTOURS*](#definitions-gc_contours)
 - <a id="definitions-gc_ellipse_major"></a>**GC_ELLIPSE_MAJOR**: Glenoid cavity as the major axis of the best fitting ellipse of the [*GC_CONTOURS*](#definitions-gc_contours)
 - <a id="definitions-gc_ellipse_minor"></a>**GC_ELLIPSE_MINOR**: Glenoid cavity as the minor axis of the best fitting ellipse of the [*GC_CONTOURS*](#definitions-gc_contours)
@@ -84,8 +85,8 @@ TODO
 2. *Roughly normalize the data:* From the [raw data](#definitions-raw_data), perform a rough normalization so the scapula is contained within a unit box. To do so, the min and max values of all the coordinates are extracted and the data are divided by the norm of the min-to-max vector.
 *Note: this normalization is temporary and will be refined later on using the actual landmarks (see [*Step 3*](#method-step_3_normalize)).*
 
-3. *Get bony landmarks:* Showing these roughly normalized data on screen, the user is requested to point the bony landmarks of the scapula, that is [*AA*](#definitions-aa), [*AC*](#definitions-ac), [*AI*](#definitions-ai), [*IE*](#definitions-ie), [*SE*](#definitions-se), [*GC_CONTOURS*](#definitions-gc_contours), [*TS*](#definitions-ts). For the [*GC_CONTOURS*](#definitions-gc_contours), the user is also asked to inform how many points should be pointed on the glenoid cavity before starting to actually point them on the scapula.
-*Note: In order to reduce the developing time, these results were manually saved in the main script (i.e., the **prepointed_landmarks** when calling the `Scapula.from_landmarks` method) to prevent having to perform this pointing step each time the main script is run. In that case, for the [*GC_CONTOURS*](#definitions-gc_contours), the number of points is assumed to be the number of points previously pointed.*
+3. *Get bony landmarks:* Showing these roughly normalized data on screen, the user is requested to point the bony landmarks of the scapula, that is [*AA*](#definitions-aa), [*AC*](#definitions-ac), [*AI*](#definitions-ai), [*IE*](#definitions-ie), [*SE*](#definitions-se), [*GC_CONTOURS*](#definitions-gc_contours), [*GC_LOWER_CONTOURS*](#definitions-gc_lower_contours), [*TS*](#definitions-ts). For the [*GC_CONTOURS*](#definitions-gc_contours) and , [*GC_LOWER_CONTOURS*](#definitions-gc_lower_contours), the user is also asked to inform how many points should be pointed on the glenoid cavity before starting to actually point them on the scapula.
+*Note: In order to reduce the developing time, these results were manually saved in the main script (i.e., the **prepointed_landmarks** when calling the `Scapula.from_landmarks` method) to prevent having to perform this pointing step each time the main script is run. In that case, for the [*GC_CONTOURS*](#definitions-gc_contours) and , [*GC_LOWER_CONTOURS*](#definitions-gc_lower_contours), the number of points is assumed to be the number of points previously pointed.*
 
 1. *Finalize the loading:* Once the scapula is fully pointed, we perform ["Step 3"](#step-3-scapulafrom_reference_scapula) for this reference scapula. Then, we perform the loading of all the statistical and EOS scapula geometries, i.e., ["Step 2.a"](#step-2a-constructs-the-statistical-scapulas) or ["Step 2.b"](#step-2b-constructs-the-eos-scapulas), respectively.
 
@@ -146,7 +147,7 @@ TODO
 1. *Compute extra landmarks:* from the pointed bony landmarks, we compute some extra landmarks as such:
    1. [*GC_MID*](#definitions-gc_mid) as the mean of [*IE*](#definitions-ie) and [*SE*](#definitions-se);
    2. [*GC_NORMAL*](#definitions-gc_normal) as the normal of the best fitting plane of the [*GC_CONTOURS*](#definitions-gc_contours). To ensure the normal is pointing outwards, we project the normal in the [*ISB*](#definitions-isb) reference system and flip it if the Z-component is negative;
-   3. [*GC_CIRCLE_CENTER*](#definitions-gc_circle_center) as the center of the best fitting circle of the [*GC_CONTOURS*](#definitions-gc_contours), projected on the best fitting plane, using a least square method;
+   3. [*GC_CIRCLE_CENTER*](#definitions-gc_circle_center) as the center of the best fitting circle of the [*GC_LOWER_CONTOURS*](#definitions-gc_lower_contours), projected on the best fitting plane, using a least square method;
    4. [*GC_ELLIPSE_CENTER*](#definitions-gc_ellipse_center) as the center of the best fitting ellipse of the [*GC_CONTOURS*](#definitions-gc_contours), projected on the best fitting plane, using an optimization method;
    5. [*GC_ELLIPSE_MAJOR*](#definitions-gc_ellipse_major) as the major axis of the best fitting ellipse of the [*GC_CONTOURS*](#definitions-gc_contours), projected on the best fitting plane, using an optimization method;
    6. [*GC_ELLIPSE_MINOR*](#definitions-gc_ellipse_minor) as the minor axis of the best fitting ellipse of the [*GC_CONTOURS*](#definitions-gc_contours), projected on the best fitting plane, using an optimization method.

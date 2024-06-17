@@ -64,7 +64,7 @@ class ScapulaJcsGeneric:
             axis = axis[:3]
 
         if self.plane == "GC_NORMAL":
-            plane_normal = landmarks["GC_NORMAL"][:3, 0] - landmarks["GC_CIRCLE_CENTER"][:3, 0]
+            plane_normal = landmarks["GC_NORMAL"][:3, 0] - landmarks["GC_ELLIPSE_CENTER"][:3, 0]
         else:
             plane_first_axis_start = np.mean([landmarks[name] for name in self.plane[0][0]], axis=0)
             plane_first_axis_end = np.mean([landmarks[name] for name in self.plane[0][1]], axis=0)
