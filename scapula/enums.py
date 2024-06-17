@@ -17,7 +17,7 @@ class JointCoordinateSystem(Enum):
     the x-axis and the y-plane.
     """
 
-    ISB = ScapulaJcsGeneric(
+    SCS1 = ScapulaJcsGeneric(
         origin=["AA"],
         axis=(["TS"], ["AA"]),
         axis_name="z",
@@ -35,13 +35,21 @@ class JointCoordinateSystem(Enum):
     )
     SCS3 = ScapulaJcsGeneric(
         origin=["AC"],
+        axis=(["TS"], ["AA"]),
+        axis_name="x",
+        plane=((["AI"], ["TS"]), (["AI"], ["AA"])),
+        plane_name="y",
+        keep="axis",
+    )
+    SCS4 = ScapulaJcsGeneric(
+        origin=["AC"],
         axis=(["TS"], ["AC"]),
         axis_name="z",
         plane=((["AI"], ["TS"]), (["AI"], ["AC"])),
         plane_name="x",
         keep="axis",
     )
-    SCS4 = ScapulaJcsGeneric(
+    SCS5 = ScapulaJcsGeneric(
         origin=["GC_CIRCLE_CENTER"],
         axis=(["TS"], ["GC_CIRCLE_CENTER"]),
         axis_name="z",
@@ -49,7 +57,7 @@ class JointCoordinateSystem(Enum):
         plane_name="x",
         keep="axis",
     )
-    SCS5 = ScapulaJcsGeneric(
+    SCS6 = ScapulaJcsGeneric(
         origin=["TS"],
         axis=(["TS"], ["AC"]),
         axis_name="x",
@@ -57,7 +65,7 @@ class JointCoordinateSystem(Enum):
         plane_name="y",
         keep="axis",
     )
-    SCS6 = ScapulaJcsGeneric(
+    SCS7 = ScapulaJcsGeneric(
         origin=["AC"],
         axis=(["TS"], ["AC"]),
         axis_name="x",
@@ -65,7 +73,7 @@ class JointCoordinateSystem(Enum):
         plane_name="y",
         keep="axis",
     )
-    SCS7 = ScapulaJcsGeneric(
+    SCS8 = ScapulaJcsGeneric(
         origin=["GC_MID"],
         axis=(["IE"], ["SE"]),
         axis_name="y",
@@ -73,7 +81,7 @@ class JointCoordinateSystem(Enum):
         plane_name="z",
         keep="axis",
     )
-    SCS8 = ScapulaJcsGeneric(
+    SCS9 = ScapulaJcsGeneric(
         origin=["GC_ELLIPSE_CENTER"],
         axis="GC_ELLIPSE_MAJOR",
         axis_name="z",
@@ -81,7 +89,7 @@ class JointCoordinateSystem(Enum):
         plane_name="y",
         keep="axis",
     )
-    SCS9 = ScapulaJcsGeneric(
+    SCS10 = ScapulaJcsGeneric(
         origin=["GC_MID"],
         axis=[["IE"], ["SE"]],
         axis_name="z",
@@ -89,13 +97,13 @@ class JointCoordinateSystem(Enum):
         plane_name="x",
         keep="axis",
     )
-    SCS10 = ScapulaJcsGeneric(
-        origin=["GC_ELLIPSE_CENTER"],
+    SCS11 = ScapulaJcsGeneric(
+        origin=["GC_MID"],
         axis=(["IE"], ["SE"]),
         axis_name="x",
         plane="GC_NORMAL",
         plane_name="z",
-        keep="axis",
+        keep="plane",
     )
 
     def __call__(self, landmarks: dict[str, np.array]) -> np.array:
