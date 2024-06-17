@@ -19,5 +19,6 @@ dependencies:
 - plyfile
 - numpy-stl
 - scikit-spatial
+- pip
 - pip:
   - myosuite
