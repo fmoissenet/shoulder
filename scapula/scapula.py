@@ -52,13 +52,14 @@ def _load_scapula_geometry(file_path: str, is_left: bool) -> np.ndarray:
 
 
 class Scapula:
-    def __init__(self, geometry: str | np.ndarray, is_left: bool) -> None:
+    def __init__(self, geometry: str | np.ndarray, is_left: bool, reference_jcs_type: JointCoordinateSystem) -> None:
         """
         Private constructor to load the scapula geometry from a file. This should not be called directly.
 
         Args:
         geometry: Whether a file path to the scapula geometry or the scapula geometry itself
         is_left: whether the scapula is the left one or a right one. If left, the scapula will be mirrored.
+        reference_system: the reference system to use for the scapula
 
         Returns:
         None
@@ -72,6 +73,8 @@ class Scapula:
             raise ValueError("Invalid geometry type")
         self.normalized_raw_data = DataHelpers.rough_normalize(self.raw_data)
 
+        self._reference_jcs_type = reference_jcs_type
+
         # The following fields need to be filled by the public constructor
         self._scale_factor: float = None  # The scale factor to normalize the scapula (based on the AI and AA landmarks)
         self._landmarks: dict[str, np.ndarray] = None  # The landmarks of the scapula in RAW_NORMALIZED
@@ -84,6 +87,7 @@ class Scapula:
         cls,
         geometry: str | np.ndarray,
         predefined_landmarks: dict[str, np.ndarray] = None,
+        reference_jcs_type: JointCoordinateSystem = JointCoordinateSystem.ISB,
         is_left: bool = False,
     ) -> "Scapula":
         """
@@ -93,12 +97,13 @@ class Scapula:
         geometry: Whether a file path to the scapula geometry or the scapula geometry itself
         predefined_landmarks: dictionary containing the landmarks as keys and the coordinates as values in RAW_NORMALIZED.
         If None, the user will be prompted to select the landmarks on the scapula geometry.
+        reference_jcs_type: the reference system to use for the scapula
         is_left: whether the scapula is the left one or a right one. If left, the scapula will be mirrored.
 
         Returns:
         Scapula object
         """
-        scapula = cls(geometry=geometry, is_left=is_left)
+        scapula = cls(geometry=geometry, is_left=is_left, reference_jcs_type=reference_jcs_type)
 
         # Fill the mandatory fields that are not filled by the private constructor
         scapula._fill_mandatory_fields(predefined_landmarks=predefined_landmarks)
@@ -111,6 +116,7 @@ class Scapula:
         cls,
         geometry: str | np.ndarray,
         reference_scapula: "Scapula",
+        reference_jcs_type: JointCoordinateSystem = JointCoordinateSystem.ISB,
         shared_indices_with_reference: bool = False,
         is_left: bool = False,
     ) -> "Scapula":
@@ -120,6 +126,7 @@ class Scapula:
         Args:
         geometry: Whether a file path to the scapula geometry or the scapula geometry itself
         reference_scapula: reference scapula object
+        reference_jcs_type: the reference system to use for the scapula
         shared_indices_with_reference: whether to use the same indices for both scapulas (much faster as it skips the
         nearest neighbor search)
         is_left: whether the scapula is the left one or a right one. If left, the scapula will be mirrored.
@@ -127,7 +134,7 @@ class Scapula:
         Returns:
         Scapula object
         """
-        scapula = cls(geometry=geometry, is_left=is_left)
+        scapula = cls(geometry=geometry, is_left=is_left, reference_jcs_type=reference_jcs_type)
 
         # Find the landmarks so we can call the from_landmarks constructor
 
@@ -176,6 +183,7 @@ class Scapula:
         cls,
         reference_scapula: "Scapula",
         models_folder: str,
+        reference_jcs_type: JointCoordinateSystem = JointCoordinateSystem.ISB,
         number_to_generate: int = 1,
         model: str = "A",
         mode_ranges=None,
@@ -186,6 +194,7 @@ class Scapula:
 
         Args:
         reference_scapula: the reference scapula
+        reference_jcs_type: the reference system to use for the scapula
         models_folder: directory where the statistical models are located
         number_to_generate: number of models to generate
         model: statistical model type (A, P or H), default is A
@@ -228,6 +237,7 @@ class Scapula:
                 geometry=geometry,
                 reference_scapula=reference_scapula,
                 shared_indices_with_reference=True,
+                reference_jcs_type=reference_jcs_type,
                 is_left=False,
             )
 
@@ -320,8 +330,8 @@ class Scapula:
         # Refine the landmarks based on the properly normalized data
         self._landmarks = self._define_landmarks(predefined_landmarks=predefined_landmarks)
 
-        # Project the scapula in its local reference frame based on ISB
-        self._gcs = JointCoordinateSystem.ISB(self._landmarks)
+        # Project the scapula in its local reference frame based on the reference system
+        self._gcs = self._reference_jcs_type(self._landmarks)
 
         # Compute the local data
         self.local_data = MatrixHelpers.transpose_homogenous_matrix(self._gcs) @ self.normalized_raw_data
@@ -423,7 +433,7 @@ class Scapula:
 
     def get_joint_coordinates_system(
         self,
-        jcs_type: JointCoordinateSystem = JointCoordinateSystem.ISB,
+        jcs_type: JointCoordinateSystem = None,
         data_type: ScapulaDataType = ScapulaDataType.LOCAL,
     ) -> np.ndarray:
         """
@@ -436,6 +446,8 @@ class Scapula:
         Returns:
         jcs: the joint coordinate system as a 4x4 matrix
         """
+        if jcs_type is None:
+            jcs_type = self._reference_jcs_type
         return jcs_type(self.landmarks(data_type))
 
     def landmarks(

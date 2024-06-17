@@ -11,6 +11,7 @@ def main():
     skip = []  # ["Statistics"]  # ["EOS"]
     base_folder = "models/scapula/"
     reference_for_output = "Statistics"
+    reference_jcs_type = JointCoordinateSystem.SCS10
     plot_individual_scapulas = False
     plot_reference_scapula = False
     plot_all_scapulas = False
@@ -79,6 +80,7 @@ def main():
         reference_scapulas[scapula_type] = get_reference_scapula(
             filepath=scapulas_to_use[scapula_type]["reference"]["path"],
             use_precomputed_values=scapulas_to_use[scapula_type]["reference"]["use_precomputed_values"],
+            reference_jcs_type=reference_jcs_type,
         )
         if plot_reference_scapula:
             reference_scapulas[scapula_type].plot_geometry(show_now=True, show_glenoid=True, show_landmarks=True)
@@ -91,6 +93,7 @@ def main():
                     scapula = Scapula.from_reference_scapula(
                         geometry=os.path.join(scapulas_to_use[scapula_type][scapula_subtype]["folder"], name),
                         reference_scapula=reference_scapulas[scapula_type],
+                        reference_jcs_type=reference_jcs_type,
                         shared_indices_with_reference=scapulas_to_use[scapula_type]["shared_indices_with_reference"],
                         is_left=name in scapulas_to_use[scapula_type]["is_left"],
                     )
@@ -104,6 +107,7 @@ def main():
                     number_to_generate=scapulas_to_use[scapula_type][scapula_subtype]["generate"],
                     model=scapula_subtype,
                     reference_scapula=reference_scapulas[scapula_type],
+                    reference_jcs_type=reference_jcs_type,
                 )
 
                 scapulas[scapula_type].extend(list(scapula))
@@ -135,7 +139,7 @@ def main():
         average_translation_errors[key] = {}
         reference_rts[key] = {}
         for target in JointCoordinateSystem:
-            all_rt = Scapula.get_frame_of_reference(scapulas[key], target, reference_system=JointCoordinateSystem.ISB)
+            all_rt = Scapula.get_frame_of_reference(scapulas[key], target, reference_system=reference_jcs_type)
             # Modify the translation so it is in distance (as opposed to normalized)
             for i, rt in enumerate(all_rt):
                 rt[:3, 3] *= scapulas[key][i].scale_factor
@@ -149,7 +153,7 @@ def main():
             )
 
             reference_rt = Scapula.get_frame_of_reference(
-                [reference_scapula], target, reference_system=JointCoordinateSystem.ISB
+                [reference_scapula], target, reference_system=reference_jcs_type
             )
             reference_rt[0][:3, 3] *= reference_scapula.scale_factor
             reference_rts[key][target] = MatrixHelpers.average_matrices(reference_rt)
@@ -162,7 +166,7 @@ def main():
                 average_rts[key],
                 reference_rts[key],
                 angle_name=key,
-                reference_system=JointCoordinateSystem.ISB,
+                reference_system=reference_jcs_type,
             )
 
             PlotHelpers.export_errors_to_latex(
@@ -170,7 +174,7 @@ def main():
                 angle_name=key,
                 average_angles=average_rotation_errors[key],
                 average_translations=average_translation_errors[key],
-                reference_system=JointCoordinateSystem.ISB,
+                reference_system=reference_jcs_type,
                 angle_in_degrees=angle_in_degrees,
             )
 
